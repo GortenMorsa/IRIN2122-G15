@@ -214,7 +214,12 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 
 	/* Fase 3: ACTUACIÓN */
 	/* Option 1: Speed between -1000, 1000*/ 
-	m_acWheels->SetSpeed(-100,-100);
+
+
+	m_acWheels->SetSpeed(100,100);
+	if (redlight[0] > 0 || redlight[1] > 0 || redlight[7] > 0 || redlight[6] > 0)  {
+		m_acWheels->SetSpeed(0,0);
+	}
 
 
 	/* Option 2: Speed between 0,1*/

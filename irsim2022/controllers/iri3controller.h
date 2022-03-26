@@ -46,6 +46,7 @@ private:
 	double 		stopToAllInhibitor;
 	double 		fForageToNavigateInhibitor;
 	int 		notBusy;
+	int			isABlueLightOn;
 
 	/* Functions */
 	void ExecuteBehaviors(void);

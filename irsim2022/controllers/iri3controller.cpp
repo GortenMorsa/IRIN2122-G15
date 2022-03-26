@@ -50,7 +50,7 @@ using namespace std;
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 400
+#define SPEED 450
 
 
 CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
@@ -96,6 +96,7 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	stopToAllInhibitor = 1.0;
 	fForageToNavigateInhibitor = 1.0;
 	notBusy = 1.0;
+	isABlueLightOn = 0;
 
 
 	m_fActivationTable = new double* [BEHAVIORS];
@@ -184,12 +185,14 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 // 	}
 // 	printf ("\n");
 	
-// 	printf("BLUE LIGHT: ");
-// 	for ( int i = 0 ; i < m_seBlueLight->GetNumberOfInputs() ; i ++ )
-// 	{
-// 		printf("%1.3f ", bluelight[i]);
-// 	}
-// 	printf ("\n");
+	// printf("BLUE LIGHT: ");
+	// for ( int i = 0 ; i < m_seBlueLight->GetNumberOfInputs() ; i ++ )
+	// {
+	// 	printf("%1.3f ", bluelight[i]);
+	// }
+	// printf ("\n");
+	// printf("TOTAL: %1.3f", bluelight[0] + bluelight[7]);
+
 	
 // 	printf("RED LIGHT: ");
 // 	for ( int i = 0 ; i < m_seRedLight->GetNumberOfInputs() ; i ++ )
@@ -212,12 +215,12 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 // 	}
 // 	printf("\n");
 	
-// 	printf("BATTERY: ");
-// 	for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
-// 	{
-// 		printf("%1.3f ", battery[i]);
-// 	}
-// 	printf("\n");
+	printf("BATTERY: ");
+	for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
+	{
+		printf("%1.3f ", battery[i]);
+	}
+	printf("\n");
 	
 // 	printf("BLUE BATTERY: ");
 // 	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
@@ -309,7 +312,7 @@ void CIri3Controller::Coordinator(void) {
 	for (nBehavior = 0; nBehavior < BEHAVIORS; nBehavior++) {
 		if (m_fActivationTable[nBehavior][2] == 1.0) {
 			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
-			printf("Busy? %d\n", notBusy);
+			printf("Can pick up? %d, Are there undiscovered spots? %d\n", notBusy, isABlueLightOn);
 			fAngle += m_fActivationTable[nBehavior][0];
 			nActiveBehaviors++;
 		}
@@ -402,6 +405,8 @@ void CIri3Controller::Navigate(unsigned int un_priority) {
 
 	double fMaxLight = 0.0;
 	const double* lightDirections = m_seBlueLight->GetSensorDirections();
+	double totalLight = light[0] + light[1] + light[2] + light[3]
+		+ light[4] + light[5] + light[6] + light[7];
 
   	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
 	dVector2 vRepelent;
@@ -427,13 +432,14 @@ void CIri3Controller::Navigate(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = fMaxLight;
 
-		if (stopToAllInhibitor*fBattToForageInhibitor*fForageToNavigateInhibitor){
-		/* Set Leds to RED */
+	if (stopToAllInhibitor*fBattToForageInhibitor*fForageToNavigateInhibitor){
+		/* Set Leds to GREEN */
 		notBusy = 1.0;
-		m_pcEpuck->SetAllColoredLeds(LED_COLOR_YELLOW);	
+		if (totalLight > 0) isABlueLightOn = 1;
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);	
     	/* Mark behavior as active */
 		m_fActivationTable[un_priority][2] = 1.0;
-	}	
+	}
 }
 
 /******************************************************************************/
@@ -479,7 +485,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
     	/* Inibit Forage */
 		fBattToForageInhibitor = 0.0;
 		/* Set Leds to RED */
-		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);	
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);	
     	/* Mark behavior as active */
    		 m_fActivationTable[un_priority][2] = 1.0;
 	}	
@@ -491,6 +497,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 void CIri3Controller::Forage(unsigned int un_priority) {
 	/* Leer Sensores de Suelo Memory */
 	double* groundMemory = m_seGroundMemory->GetSensorReading(m_pcEpuck);
+	double* groundSensor = m_seGround->GetSensorReading(m_pcEpuck);
 	
 	/* Leer Sensores de Luz */
 	double* light = m_seLight->GetSensorReading(m_pcEpuck);
@@ -498,6 +505,8 @@ void CIri3Controller::Forage(unsigned int un_priority) {
 	
 	double fMaxLight = 0.0;
 	double fMaxBlueLight = blueLight[0] + blueLight[7];
+	double fTotalBlueLight = blueLight[0] + blueLight[1] + blueLight[2]+ blueLight[3] 
+		+ blueLight[4] + blueLight[5] + blueLight[6] + blueLight[7];
 	const double* lightDirections = m_seLight->GetSensorDirections();
 
   	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
@@ -527,18 +536,19 @@ void CIri3Controller::Forage(unsigned int un_priority) {
  	 m_fActivationTable[un_priority][1] = 1 - fMaxLight;
   
 	/* If with a virtual puck */
-
 	
-
-	if ( ( groundMemory[0] * fBattToForageInhibitor * stopToAllInhibitor ) == 1.0 ) {
-		if ( (fMaxBlueLight > 1.112) && notBusy == 1.0) {
+	if ((groundMemory[0] * fBattToForageInhibitor * stopToAllInhibitor) == 1.0) {
+		if (notBusy == 1.0 && fMaxBlueLight > 1.325 && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			notBusy = 0.0;
+			isABlueLightOn = 0;
 		}
-		fForageToNavigateInhibitor = 0.0;
-		/* Set Leds to BLUE */
-		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);
-		/* Mark Behavior as active */
-		m_fActivationTable[un_priority][2] = 1.0;
+		if (isABlueLightOn == 0) {
+			fForageToNavigateInhibitor = 0.0;
+			/* Set Leds to RED */
+			m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
+			/* Mark Behavior as active */
+			m_fActivationTable[un_priority][2] = 1.0;
+		}	
 	}
 }

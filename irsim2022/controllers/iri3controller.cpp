@@ -50,7 +50,7 @@ using namespace std;
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 200
+#define SPEED 150
 
 
 CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
@@ -164,12 +164,12 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	/* FASE 2: CONTROLADOR */
 	
 // 	/* Inicio Incluir las ACCIONES/CONTROLADOR a implementar */
-// 	printf("CONTACT: ");
-// 	for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
-// 	{
-// 		printf("%1.3f ", contact[i]);
-// 	}
-// 	printf("\n");
+	printf("CONTACT: ");
+	for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
+	{
+		printf("%1.3f ", contact[i]);
+	}
+	printf("\n");
 	
 // 	printf("PROX: ");
 // 	for ( int i = 0 ; i < m_seProx->GetNumberOfInputs() ; i ++ )
@@ -535,7 +535,7 @@ void CIri3Controller::Forage(unsigned int un_priority) {
 	/* If with a virtual puck */
 	
 	if ((groundMemory[0] * fBattToForageInhibitor * stopToAllInhibitor) == 1.0) {
-		if (notBusy == 1.0 && fMaxBlueLight > 1.35 && groundSensor[0] == 0.5) {
+		if (notBusy == 1.0 && fMaxBlueLight >= 1.1 && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			notBusy = 0.0;
 			isABlueLightOn = 0;

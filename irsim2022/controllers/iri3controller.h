@@ -44,6 +44,8 @@ private:
 	double 		m_fTime;
 	double 		fBattToForageInhibitor;
 	double 		stopToAllInhibitor;
+	double 		fForageToNavigateInhibitor;
+	int 		notBusy;
 
 	/* Functions */
 	void ExecuteBehaviors(void);

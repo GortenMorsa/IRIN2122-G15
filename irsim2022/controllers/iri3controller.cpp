@@ -35,12 +35,13 @@ extern long int rngSeed;
 using namespace std;
 
 /******************** Behaviors **************/
-#define BEHAVIORS	4
+#define BEHAVIORS	5
 
-#define AVOID		0
-#define RECHARGE	1
-#define DELIVER		2
-#define SEARCH		3
+#define STOP 		0
+#define AVOID		1
+#define RECHARGE	2
+#define DELIVER		3
+#define SEARCH		4
 
 /* Threshold to avoid obstacles */
 #define PROXIMITY_THRESHOLD 0.3
@@ -92,6 +93,7 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	m_fLeftSpeed = 0.0;
 	m_fRightSpeed = 0.0;
   	fBattToForageInhibitor = 1.0;
+	stopToAllInhibitor = 1.0;
 
 	m_fActivationTable = new double* [BEHAVIORS];
 	for ( int i = 0 ; i < BEHAVIORS ; i++ )
@@ -257,10 +259,10 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	/* Option 1: Speed between -1000, 1000*/ 
 
 
-	m_acWheels->SetSpeed(100,100);
-	if (redlight[0] > 0 || redlight[7] > 0 )  {
-		m_acWheels->SetSpeed(0,0);
-	}
+	// m_acWheels->SetSpeed(100,100);
+	// if (redlight[0] > 0 || redlight[7] > 0 )  {
+	// 	m_acWheels->SetSpeed(0,0);
+	// }
 
 
 	/* Option 2: Speed between 0,1*/
@@ -279,10 +281,12 @@ void CIri3Controller::ExecuteBehaviors(void) {
 
 	/* Release Inhibitors */
 	fBattToForageInhibitor = 1.0;
+	stopToAllInhibitor = 1.0;
 
 	/* Set Leds to BLACK */
-	m_pcEpuck->SetAllColoredLeds(	LED_COLOR_BLACK);
+	m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLACK);
 
+	TrafficLightStop(STOP);
 	ObstacleAvoidance(AVOID);
 	GoLoad(RECHARGE);
 	Forage(DELIVER);
@@ -293,33 +297,201 @@ void CIri3Controller::ExecuteBehaviors(void) {
 /******************************************************************************/
 
 void CIri3Controller::Coordinator(void) {
+	int nBehavior;
+	double fAngle = 0.0;
+
+	int nActiveBehaviors = 0;
+	for (nBehavior = 0; nBehavior < BEHAVIORS; nBehavior++) {
+		if (m_fActivationTable[nBehavior][2] == 1.0) {
+			fAngle += m_fActivationTable[nBehavior][0];
+			nActiveBehaviors++;
+		}
+	}
+
+	fAngle /= (double) nActiveBehaviors;
+
+	/* Normalize fAngle */
+	while ( fAngle > M_PI ) fAngle -= 2 * M_PI;
+	while ( fAngle < -M_PI ) fAngle += 2 * M_PI;
+ 
+  	/* Based on the angle, calc wheels movements */
+  	double fCLinear = 1.0;
+  	double fCAngular = 1.0;
+  	double fC1 = SPEED / M_PI;
+
+  	/* Calc Linear Speed */
+  	double fVLinear = SPEED * fCLinear * ( cos ( fAngle / 2) );
+
+  	/*Calc Angular Speed */
+  	double fVAngular = fAngle;
+
+  	m_fLeftSpeed  = (fVLinear - fC1 * fVAngular)*stopToAllInhibitor;
+  	m_fRightSpeed = (fVLinear + fC1 * fVAngular)*stopToAllInhibitor;
 
 }
 
 /******************************************************************************/
 /******************************************************************************/
 
-void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
+void CIri3Controller::TrafficLightStop(unsigned int un_priority) {
+	/* Leer sensor rojo */
+	double* redSensor = m_seRedLight->GetSensorReading(m_pcEpuck);
 
+	if(redSensor[0] > 0 || redSensor[7] > 0) {
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_YELLOW);
+		stopToAllInhibitor = 0.0;
+		m_fActivationTable[un_priority][2] = 1.0;
+
+	} 
+}
+
+
+/******************************************************************************/
+/******************************************************************************/
+
+void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
+	/* Leer Sensores de Proximidad */
+	double* prox = m_seProx->GetSensorReading(m_pcEpuck);
+
+	double fMaxProx = 0.0;
+	const double* proxDirections = m_seProx->GetSensorDirections();
+
+	dVector2 vRepelent;
+	vRepelent.x = 0.0;
+	vRepelent.y = 0.0;
+
+	/* Calc vector Sum */
+	for (int i = 0; i < m_seProx->GetNumberOfInputs(); i ++){
+		vRepelent.x += prox[i] * cos (proxDirections[i] );
+		vRepelent.y += prox[i] * sin (proxDirections[i] );
+
+		if ( prox[i] > fMaxProx )
+			fMaxProx = prox[i];
+	}
+	
+	/* Calc pointing angle */
+	float fRepelent = atan2(vRepelent.y, vRepelent.x);
+	/* Create repelent angle */
+	fRepelent -= M_PI;
+	/* Normalize angle */
+	while ( fRepelent > M_PI ) fRepelent -= 2 * M_PI;
+	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
+
+  	m_fActivationTable[un_priority][0] = fRepelent;
+  	m_fActivationTable[un_priority][1] = fMaxProx;
+
+	/* If above a threshold */
+	if ( fMaxProx > PROXIMITY_THRESHOLD * stopToAllInhibitor ){
+		/* Set Leds to GREEN */
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);
+		/* Mark Behavior as active */
+		m_fActivationTable[un_priority][2] = 1.0;
+	}
 }
 
 /******************************************************************************/
 /******************************************************************************/
 
 void CIri3Controller::Navigate(unsigned int un_priority) {
-
+  	/* Direction Angle 0.0 and always active. We set its vector intensity to 0.5 if used */
+	m_fActivationTable[un_priority][0] = 0.0;
+	m_fActivationTable[un_priority][1] = 0.5;
+	m_fActivationTable[un_priority][2] = 1.0;
 }
 
 /******************************************************************************/
 /******************************************************************************/
 
 void CIri3Controller::GoLoad(unsigned int un_priority) {
+	/* Leer Battery Sensores */
+	double* battery = m_seBattery->GetSensorReading(m_pcEpuck);
 
+	/* Leer Sensores de Luz */
+	double* light = m_seLight->GetSensorReading(m_pcEpuck);
+
+	double fMaxLight = 0.0;
+	const double* lightDirections = m_seLight->GetSensorDirections();
+
+  	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
+	dVector2 vRepelent;
+	vRepelent.x = 0.0;
+	vRepelent.y = 0.0;
+
+	/* Calc vector Sum */
+	for ( int i = 0 ; i < m_seProx->GetNumberOfInputs() ; i ++ )
+	{
+		vRepelent.x += light[i] * cos ( lightDirections[i] );
+		vRepelent.y += light[i] * sin ( lightDirections[i] );
+
+		if ( light[i] > fMaxLight )
+			fMaxLight = light[i];
+	}
+	
+	/* Calc pointing angle */
+	float fRepelent = atan2(vRepelent.y, vRepelent.x);
+	
+	/* Normalize angle */
+	while ( fRepelent > M_PI ) fRepelent -= 2 * M_PI;
+	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
+
+	m_fActivationTable[un_priority][0] = fRepelent;
+	m_fActivationTable[un_priority][1] = fMaxLight;
+
+	/* If battery below a BATTERY_THRESHOLD */
+	if ( battery[0] < BATTERY_THRESHOLD * stopToAllInhibitor ){
+    	/* Inibit Forage */
+		fBattToForageInhibitor = 0.0;
+		/* Set Leds to RED */
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);	
+    	/* Mark behavior as active */
+   		 m_fActivationTable[un_priority][2] = 1.0;
+	}	
 }
 
 /******************************************************************************/
 /******************************************************************************/
 
 void CIri3Controller::Forage(unsigned int un_priority) {
+	/* Leer Sensores de Suelo Memory */
+	double* groundMemory = m_seGroundMemory->GetSensorReading(m_pcEpuck);
 	
+	/* Leer Sensores de Luz */
+	double* light = m_seLight->GetSensorReading(m_pcEpuck);
+	
+	double fMaxLight = 0.0;
+	const double* lightDirections = m_seLight->GetSensorDirections();
+
+  	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
+	dVector2 vRepelent;
+	vRepelent.x = 0.0;
+	vRepelent.y = 0.0;
+
+	/* Calc vector Sum */
+	for ( int i = 0 ; i < m_seProx->GetNumberOfInputs() ; i ++ ) {
+		vRepelent.x += light[i] * cos ( lightDirections[i] );
+		vRepelent.y += light[i] * sin ( lightDirections[i] );
+
+		if ( light[i] > fMaxLight )
+			fMaxLight = light[i];
+	}
+	
+	/* Calc pointing angle */
+	float fRepelent = atan2(vRepelent.y, vRepelent.x);
+	/* Create repelent angle */
+	fRepelent -= M_PI;
+	
+ 	 /* Normalize angle */
+	while ( fRepelent > M_PI ) fRepelent -= 2 * M_PI;
+	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
+
+ 	 m_fActivationTable[un_priority][0] = fRepelent;
+ 	 m_fActivationTable[un_priority][1] = 1 - fMaxLight;
+  
+	/* If with a virtual puck */
+	if ( ( groundMemory[0] * fBattToForageInhibitor * stopToAllInhibitor ) == 1.0 ) {
+		/* Set Leds to BLUE */
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);
+		/* Mark Behavior as active */
+		m_fActivationTable[un_priority][2] = 1.0;
+	}
 }

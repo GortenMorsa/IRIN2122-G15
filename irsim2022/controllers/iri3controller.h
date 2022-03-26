@@ -43,10 +43,13 @@ private:
 	int 		m_nWriteToFile;
 	double 		m_fTime;
 	double 		fBattToForageInhibitor;
+	double 		stopToAllInhibitor;
 
 	/* Functions */
 	void ExecuteBehaviors(void);
 	void Coordinator(void);
+
+	void TrafficLightStop (unsigned int un_priority);
 	void ObstacleAvoidance (unsigned int un_priority);
 	void Navigate (unsigned int un_priority);
 	void GoLoad (unsigned int un_priority);

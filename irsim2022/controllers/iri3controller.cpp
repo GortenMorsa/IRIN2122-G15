@@ -7,6 +7,14 @@
 #include <sys/time.h>
 #include <iostream>
 
+#include <iomanip>
+#include <queue>
+#include <string>
+#include <math.h>
+#include <ctime>
+#include <cstdlib> 
+#include <cstdio>
+
 /******************** Simulator ****************/
 /******************** Sensors ******************/
 #include "epuckproximitysensor.h"
@@ -28,20 +36,52 @@
 /******************** Controller **************/
 #include "iri3controller.h"
 
+/******************************************************************************/
+/******************************************************************************/
 
 extern gsl_rng* rng;
 extern long int rngSeed;
 
+const int mapGridX          = 20;
+const int mapGridY          = 20;
+double    mapLengthX        = 3.0;
+double    mapLengthY        = 3.0;
+int       robotStartGridX   = 10; 
+int       robotStartGridY   = 10;
+
+const   int n=mapGridX; // horizontal size of the map
+const   int m=mapGridY; // vertical size size of the map
+static  int map[n][m];
+static  int onlineMap[n][m];
+static  int closed_nodes_map[n][m]; // map of closed (tried-out) nodes
+static  int open_nodes_map[n][m]; // map of open (not-yet-tried) nodes
+static  int dir_map[n][m]; // map of directions
+const   int dir=8; // number of possible directions to go at any position
+//if dir==4
+//static int dx[dir]={1, 0, -1, 0};
+//static int dy[dir]={0, 1, 0, -1};
+// if dir==8
+static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
+static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
+
+#define ERROR_DIRECTION 0.05 
+#define ERROR_POSITION  0.02
+
+
+/******************************************************************************/
+/******************************************************************************/
+
 using namespace std;
 
 /******************** Behaviors **************/
-#define BEHAVIORS	5
+#define BEHAVIORS			6
 
-#define STOP 		0
-#define AVOID		1
-#define RECHARGE	2
-#define DELIVER 	3
-#define SEARCH		4
+#define STOP_PRIORITY		0
+#define AVOID_PRIORITY		1
+#define RECHARGE_PRIORITY	2
+#define DELIVER_PRIORITY	3
+#define SEARCH_PRIORITY		4
+#define GO_GOAL_PRIORITY 	5
 
 /* Threshold to avoid obstacles */
 #define PROXIMITY_THRESHOLD 0.4
@@ -51,6 +91,79 @@ using namespace std;
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
 #define SPEED 150
+
+#define NO_OBSTACLE 0
+#define OBSTACLE    1
+#define START       2
+#define PATH        3
+#define END         4
+#define NEST        5
+#define PREY        6
+
+/******************************************************************************/
+/******************************************************************************/
+
+class node
+{
+  // current position
+  int xPos;
+  int yPos;
+  // total distance already travelled to reach the node
+  int level;
+  // priority=level+remaining distance estimate
+  int priority;  // smaller: higher priority
+
+  public:
+  node(int xp, int yp, int d, int p) 
+  {xPos=xp; yPos=yp; level=d; priority=p;}
+
+  int getxPos() const {return xPos;}
+  int getyPos() const {return yPos;}
+  int getLevel() const {return level;}
+  int getPriority() const {return priority;}
+
+  void updatePriority(const int & xDest, const int & yDest)
+  {
+    priority=level+estimate(xDest, yDest)*10; //A*
+  }
+
+  // give better priority to going strait instead of diagonally
+  void nextLevel(const int & i) // i: direction
+  {
+    level+=(dir==8?(i%2==0?10:14):10);
+  }
+
+  // Estimation function for the remaining distance to the goal.
+  const int & estimate(const int & xDest, const int & yDest) const
+  {
+    static int xd, yd, d;
+    xd=xDest-xPos;
+    yd=yDest-yPos;         
+
+    // Euclidian Distance
+    d=static_cast<int>(sqrt(xd*xd+yd*yd));
+
+    // Manhattan distance
+    //d=abs(xd)+abs(yd);
+
+    // Chebyshev distance
+    //d=max(abs(xd), abs(yd));
+
+    return(d);
+  }
+};
+
+/******************************************************************************/
+/******************************************************************************/
+
+// Determine priority (in the priority queue)
+bool operator < ( const node & a, const node & b )
+{
+  return a.getPriority() > b.getPriority();
+}
+
+/******************************************************************************/
+/******************************************************************************/
 
 
 CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
@@ -104,6 +217,40 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	{
 		m_fActivationTable[i] = new double[3];
 	}
+
+	/* Odometry */
+  	m_nState              = 0;
+  	m_nPathPlanningStops  = 0;
+ 	m_fOrientation        = 0.0;
+ 	m_vPosition.x         = 0.0;
+  	m_vPosition.y         = 0.0;
+
+	/* Set Actual Position to robot Start Grid */
+ 	m_nRobotActualGridX = robotStartGridX;
+  	m_nRobotActualGridY = robotStartGridY;
+
+	/* Init onlineMap */
+  	for ( int y = 0 ; y < m ; y++ )
+   	 	for ( int x = 0 ; x < n ; x++ )
+     	 	onlineMap[x][y] = OBSTACLE;
+
+	/* DEBUG */
+  	PrintMap(&onlineMap[0][0]);
+  	/* DEBUG */
+
+	/* Initialize status of foraging */
+  	m_nForageStatus = 0;
+
+	/* Initialize Nest/Prey variables */
+	m_nNestGridX  = 0;
+	m_nNestGridY  = 0;
+	m_nPreyGridX  = 0;
+	m_nPreyGridY  = 0;
+	m_nPreyFound  = 0;
+	m_nNestFound  = 0;
+
+	/* Initialize PAthPlanning Flag*/
+	m_nPathPlanningDone = 0;
 }
 
 /******************************************************************************/
@@ -294,11 +441,15 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	/* Set Leds to BLACK */
 	m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLACK);
 
-	TrafficLightStop(STOP);
-	ObstacleAvoidance(AVOID);
-	GoLoad(RECHARGE);
-	Deliver(DELIVER);
-	SearchAndWander(SEARCH);
+	TrafficLightStop(STOP_PRIORITY);
+	ObstacleAvoidance(AVOID_PRIORITY);
+	GoLoad(RECHARGE_PRIORITY);
+	Deliver(DELIVER_PRIORITY);
+	SearchAndWander(SEARCH_PRIORITY);
+
+	ComputeActualCell(GO_GOAL_PRIORITY);
+	PathPlanning(GO_GOAL_PRIORITY);
+	GoGoal(GO_GOAL_PRIORITY);
 }
 
 /******************************************************************************/
@@ -547,4 +698,53 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 			m_fActivationTable[un_priority][2] = 1.0;
 		}	
 	}
+}
+
+
+/******************************************************************************/
+/******************************************************************************/
+
+void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
+
+}
+
+/******************************************************************************/
+/******************************************************************************/
+
+void CIri3Controller::PathPlanning(unsigned int un_priority) {
+
+}
+
+/******************************************************************************/
+/******************************************************************************/
+
+void CIri3Controller::GoGoal(unsigned int un_priority) {
+
+}
+
+/******************************************************************************/
+/******************************************************************************/
+
+void CIri3Controller::PrintMap ( int *print_map ) {
+  /* DEBUG */
+  for ( int x = 0 ; x < n ; x++ ) {
+    for ( int y = 0 ; y < m ; y++ ) {
+      if ( print_map[y*n + x] == 0 )
+        cout<<".";
+      else if(print_map[y*n+x]==1)
+        cout<<"O"; //obstacle
+      else if(print_map[y*n+x]==2)
+        cout<<"S"; //start
+      else if(print_map[y*n+x]==3)
+        cout<<"R"; //route
+      else if(print_map[y*n+x]==4)
+        cout<<"F"; //finish
+      else if(print_map[y*n+x]==5)
+        cout<<"N"; //finish
+      else if(print_map[y*n+x]==6)
+        cout<<"P"; //finish
+    }
+    cout<<endl;
+  }
+  /* DEBUG */
 }

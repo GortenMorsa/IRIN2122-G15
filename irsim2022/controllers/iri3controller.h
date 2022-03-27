@@ -47,6 +47,22 @@ private:
 	double 		inhib_goDeliver;
 	int 		flag_notBusy;
 	int			flag_blueZonePriority;
+	int    	   	m_nState;
+	int   	    m_nPathPlanningStops;
+	int     	m_nRobotActualGridX;
+	int       	m_nRobotActualGridY;
+
+	int       	m_nNestFound;
+    int    	  	m_nNestGridX;
+	int     	 m_nNestGridY;
+    
+    int       	m_nPreyFound;
+    int       	m_nPreyGridX;
+    int       	m_nPreyGridY;
+
+	int 		m_nPathPlanningDone;
+
+	int 		m_nForageStatus;
 
 	/* Functions */
 	void ExecuteBehaviors(void);
@@ -57,6 +73,13 @@ private:
 	void SearchAndWander (unsigned int un_priority);
 	void GoLoad (unsigned int un_priority);
 	void Deliver (unsigned int un_priority);
+
+	void ComputeActualCell(unsigned int un_priority);
+	void PathPlanning(unsigned int un_priority);
+	void GoGoal(unsigned int un_priority);
+
+	void PrintMap ( int *print_map );
+
 
     float m_fOrientation; 
     dVector2 m_vPosition;

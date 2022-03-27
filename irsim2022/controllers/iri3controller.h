@@ -42,11 +42,11 @@ private:
 	double** 	m_fActivationTable;
 	int 		m_nWriteToFile;
 	double 		m_fTime;
-	double 		fBattToForageInhibitor;
-	double 		stopToAllInhibitor;
-	double 		fForageToNavigateInhibitor;
-	int 		notBusy;
-	int			isABlueLightOn;
+	double 		inhib_goCharge;
+	double 		inhib_stopAll;
+	double 		inhib_goDeliver;
+	int 		flag_notBusy;
+	int			flag_blueZonePriority;
 
 	/* Functions */
 	void ExecuteBehaviors(void);

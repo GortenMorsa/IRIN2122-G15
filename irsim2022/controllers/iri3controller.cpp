@@ -297,8 +297,8 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	TrafficLightStop(STOP);
 	ObstacleAvoidance(AVOID);
 	GoLoad(RECHARGE);
-	Forage(DELIVER);
-	Navigate(SEARCH);
+	Deliver(DELIVER);
+	SearchAndWander(SEARCH);
 }
 
 /******************************************************************************/
@@ -395,7 +395,7 @@ void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 
-void CIri3Controller::Navigate(unsigned int un_priority) {
+void CIri3Controller::SearchAndWander(unsigned int un_priority) {
 	/* Leer Sensores de Luz */
 	double* light = m_seBlueLight->GetSensorReading(m_pcEpuck);
 
@@ -478,7 +478,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 
 	/* If battery below a BATTERY_THRESHOLD */
 	if ( battery[0] < BATTERY_THRESHOLD * inhib_goCharge){
-    	/* Inibit Forage */
+    	/* Inibit Deliver */
 		inhib_goCharge = 0.0;
 		/* Set Leds to RED */
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);	
@@ -490,7 +490,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 
-void CIri3Controller::Forage(unsigned int un_priority) {
+void CIri3Controller::Deliver(unsigned int un_priority) {
 	/* Leer Sensores de Suelo Memory */
 	double* groundMemory = m_seGroundMemory->GetSensorReading(m_pcEpuck);
 	double* groundSensor = m_seGround->GetSensorReading(m_pcEpuck);

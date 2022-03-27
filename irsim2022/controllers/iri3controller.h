@@ -54,9 +54,9 @@ private:
 
 	void TrafficLightStop (unsigned int un_priority);
 	void ObstacleAvoidance (unsigned int un_priority);
-	void Navigate (unsigned int un_priority);
+	void SearchAndWander (unsigned int un_priority);
 	void GoLoad (unsigned int un_priority);
-	void Forage (unsigned int un_priority);
+	void Deliver (unsigned int un_priority);
 
     float m_fOrientation; 
     dVector2 m_vPosition;

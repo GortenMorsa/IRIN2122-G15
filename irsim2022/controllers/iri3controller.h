@@ -65,7 +65,7 @@ private:
 	int    		m_nNestGridY;
     
 	int 		m_PreyIndex;
-    int       	m_nPreyFound;
+    int       	m_nPreyDelivered;
 	int** 		m_nPreyGrid;
     int       	m_nPreyGridX;
     int       	m_nPreyGridY;

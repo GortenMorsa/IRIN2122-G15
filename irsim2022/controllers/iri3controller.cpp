@@ -45,8 +45,8 @@ const int mapGridX          = 20;
 const int mapGridY          = 20;
 double    mapLengthX        = 3.0;
 double    mapLengthY        = 3.0;
-int       robotStartGridX   = 2; 
-int       robotStartGridY   = 19;
+int       robotStartGridX   = 1; 
+int       robotStartGridY   = 18;
 
 const   int n=mapGridX; // horizontal size of the map
 const   int m=mapGridY; // vertical size size of the map
@@ -86,7 +86,7 @@ using namespace std;
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 350
+#define SPEED 150
 
 /************** Mapas Parte 2 ************/
 #define MAX_PREYS	4
@@ -251,7 +251,7 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 		m_nPreyGrid[i] = new int[3];
 	}
 
-	m_nPreyFound  = 0;
+	m_nPreyDelivered  = 0;
 	m_nNestFound  = 0;
 
 	/* Initialize PAthPlanning Flag*/
@@ -367,14 +367,22 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 // 	}
 // 	printf("\n");
 	
-	printf("BATTERY: ");
-	for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
-	{
-		printf("%1.3f ", battery[i]);
+	// printf("BATTERY: ");
+	// for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
+	// {
+	// 	printf("%1.3f ", battery[i]);
+	// }
+	// printf("\n");
+	// printf("Not busy: %d\n", flag_notBusy);
+	// printf("Presas entregadas: %d\n", m_nPreyDelivered);
+	printf("nPathPlanningStops: %d\n", m_nPathPlanningStops);
+	printf("nState: %d\n", m_nState);
+	
+	for (int i = 0; i < MAX_PREYS; i++) {
+		printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
 	}
-	printf("\n");
-	printf("Not busy: %d\n", flag_notBusy);
-	printf("Presas localizadas: %d\n", m_nPreyFound);
+
+	PrintMap(&onlineMap[0][0]);
 	
 // 	printf("BLUE BATTERY: ");
 // 	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
@@ -676,7 +684,7 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = 1 - fMaxLight;
   
-	if (flag_notBusy == 0 && inhib_notGoGoal == 1.0) {
+	if (flag_notBusy == 0 && m_nPreyDelivered < 4) {
 		inhib_notDelivering = 0.0;
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
 		m_fActivationTable[un_priority][2] = 1.0;
@@ -706,10 +714,10 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 		if (flag_notBusy == 1 && (frontBlueLight >= 1.1 || inhib_notSearching == 1.0) && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			flag_notBusy = 0.0;
-			m_nPreyFound++;
 		}
-	} else if (groundMemory[0] == 0.0 && inhib_notCharging == 1.0) {
+	} else if (flag_notBusy == 0.0 && groundMemory[0] == 0.0 && inhib_notCharging == 1.0) {
 		flag_notBusy = 1;
+		m_nPreyDelivered++;
 	}
 }
 
@@ -720,16 +728,16 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 void CIri3Controller::GoGoal ( unsigned int un_priority ){
-  	if (inhib_notCharging == 1.0 && m_nPreyFound == 4) {
+  	if (inhib_notCharging == 1.0 && m_nPreyDelivered == 4) {
 	
     	/* Enable Inhibitor to Forage */
     	inhib_notGoGoal = 0.0;
 
     	/* If something not found at the end of planning, reset plans */
-    	if (m_nState >= m_nPathPlanningStops ) {
+    	if (m_nState >= m_nPathPlanningStops && m_nPreyDelivered > 4) {
       		printf(" --------------- LOST!!!!!!!! --------------\n");
       		m_nNestFound  = 0;
-      		m_nPreyFound  = 0;
+      		m_nPreyDelivered  = 0;
       		m_nState      = 0;
       		return;
     	}
@@ -802,47 +810,46 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
   }
  
   	/* If looking for nest and arrived to nest */
-  	if (flag_notBusy == 1 && groundMemory[0] == 0 && m_nForageStatus == 0) {
-    /* update forage status */
-    m_nForageStatus = 0;
-    /* Asumme Path Planning is done */
-    m_nPathPlanningDone = 0;
-    /* Restart PathPlanning state */
-    m_nState = 0;
-    /* Mark nest on map */
-    onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = NEST;
-    /* Flag that nest was found */
-    m_nNestFound = 1;
-    /* Update nest grid */
-    m_nNestGridX = m_nRobotActualGridX;
-    m_nNestGridY = m_nRobotActualGridY;
-    /* DEBUG */
-    // PrintMap(&onlineMap[0][0]);
-    /* DEBUG */
-  }//end looking for nest
-  
-  	/* If looking for prey and prey graspped */
-  	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0) {
-    /* Update forage Status */
-    m_nForageStatus = 1;
-    /* Asumme Path Planning is done */
-    m_nPathPlanningDone = 0;
-    /* Restart PathPlanning state */
-    m_nState = 0;
-    /* Mark prey on map */
-    onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = PREY;
-    /* Flag that prey was found */
-    // m_nPreyFound++;
-    /* Update prey grid */
-    m_nPreyGrid[m_PreyIndex][0] = 1;
-    m_nPreyGrid[m_PreyIndex][1] = m_nRobotActualGridX;
-    m_nPreyGrid[m_PreyIndex][2] = m_nRobotActualGridY;
-    m_PreyIndex += 1;
-    m_PreyIndex %= MAX_PREYS;
-    /* DEBUG */
-    PrintMap(&onlineMap[0][0]);
-    /* DEBUG */
-  }
+  	if (flag_notBusy == 1 && groundMemory[0] == 0 && m_nForageStatus == 1) {
+    	/* update forage status */
+    	m_nForageStatus = 0;
+    	/* Asumme Path Planning is done */
+    	m_nPathPlanningDone = 0;
+    	/* Restart PathPlanning state */
+    	m_nState = 0;
+    	/* Mark nest on map */
+    	onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = NEST;
+    	/* Flag that nest was found */
+    	m_nNestFound = 1;
+    	/* Update nest grid */
+    	m_nNestGridX = m_nRobotActualGridX;
+    	m_nNestGridY = m_nRobotActualGridY;
+    	/* DEBUG */
+    	// PrintMap(&onlineMap[0][0]);
+    	/* DEBUG */
+  	}	//end looking for nest
+	/* If looking for prey and prey graspped */
+	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0) {
+    	/* Update forage Status */
+    	m_nForageStatus = 1;
+    	/* Asumme Path Planning is done */
+		m_nPathPlanningDone = 0;
+		/* Restart PathPlanning state */
+		m_nState = 0;
+		/* Mark prey on map */
+		onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = PREY;
+		/* Flag that prey was found */
+		// m_nPreyFound++;
+		/* Update prey grid */
+		m_nPreyGrid[m_PreyIndex][0] = 1;
+		m_nPreyGrid[m_PreyIndex][1] = m_nRobotActualGridX;
+		m_nPreyGrid[m_PreyIndex][2] = m_nRobotActualGridY;
+		m_PreyIndex += 1;
+		m_PreyIndex %= MAX_PREYS;
+		/* DEBUG */
+		PrintMap(&onlineMap[0][0]);
+		/* DEBUG */
+  	}
 }
 
 void CIri3Controller::CalcPositionAndOrientation (double *f_encoder)
@@ -879,7 +886,7 @@ void CIri3Controller::PathPlanning(unsigned int un_priority) {
   	}
     	
   	/* Found nest, found and caught prey */
-	if (m_nNestFound == 1 && m_nPreyFound >= 4 && m_nPathPlanningDone == 0 && inhib_notDelivering == 1.0) {
+	if (m_nNestFound == 1 && m_nPreyDelivered >= 4 && m_nPathPlanningDone == 0) {
     	m_nPathPlanningStops=0;
     	m_fActivationTable[un_priority][2] = 1;
 		    
@@ -895,11 +902,6 @@ void CIri3Controller::PathPlanning(unsigned int un_priority) {
       		yA=m_nRobotActualGridY;
       		xB = m_nPreyGrid[m_PreyIndex][1];
       		yB = m_nPreyGrid[m_PreyIndex][2];
-
-	  		m_PreyIndex++;
-			m_PreyIndex /= MAX_PREYS;
-      		// xB=m_nPreyGridX;
-      		// yB=m_nPreyGridY;
     	}
 
     	/* DEBUG */

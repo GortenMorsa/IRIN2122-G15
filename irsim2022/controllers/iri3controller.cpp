@@ -569,9 +569,11 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 void CIri3Controller::Wander(unsigned int un_priority) {
-	m_fActivationTable[un_priority][2] = 1.0;
-	m_fActivationTable[un_priority][0] = 0.0;
-	m_fActivationTable[un_priority][1] = 1.0;
+	if (inhib_notSearching*inhib_notCharging*inhib_notDelivering) {
+		m_fActivationTable[un_priority][2] = 1.0;
+		m_fActivationTable[un_priority][0] = 0.0;
+		m_fActivationTable[un_priority][1] = 1.0;
+	}
 }
 
 /******************************************************************************/

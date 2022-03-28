@@ -373,6 +373,8 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		printf("%1.3f ", battery[i]);
 	}
 	printf("\n");
+	printf("Not busy: %d\n", flag_notBusy);
+	printf("Presas localizadas: %d\n", m_nPreyFound);
 	
 // 	printf("BLUE BATTERY: ");
 // 	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
@@ -674,7 +676,7 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = 1 - fMaxLight;
   
-	if (flag_notBusy == 0) {
+	if (flag_notBusy == 0 && inhib_notGoGoal == 1.0) {
 		inhib_notDelivering = 0.0;
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
 		m_fActivationTable[un_priority][2] = 1.0;
@@ -700,10 +702,11 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
 	double frontBlueLight = blueLight[0] + blueLight[7];
 
-	if ((groundMemory[0] * inhib_notCharging) == 1.0) {
+	if ((groundMemory[0] * inhib_notCharging) == 1.0 && inhib_notGoGoal == 1.0) {
 		if (flag_notBusy == 1 && (frontBlueLight >= 1.1 || inhib_notSearching == 1.0) && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			flag_notBusy = 0.0;
+			m_nPreyFound++;
 		}
 	} else if (groundMemory[0] == 0.0 && inhib_notCharging == 1.0) {
 		flag_notBusy = 1;
@@ -716,6 +719,51 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 /*********************FUNCIONES PARTE RESOLUCION DE MAPAS**********************/
 /******************************************************************************/
 /******************************************************************************/
+void CIri3Controller::GoGoal ( unsigned int un_priority ){
+  	if (inhib_notCharging == 1.0 && m_nPreyFound == 4) {
+	
+    	/* Enable Inhibitor to Forage */
+    	inhib_notGoGoal = 0.0;
+
+    	/* If something not found at the end of planning, reset plans */
+    	if (m_nState >= m_nPathPlanningStops ) {
+      		printf(" --------------- LOST!!!!!!!! --------------\n");
+      		m_nNestFound  = 0;
+      		m_nPreyFound  = 0;
+      		m_nState      = 0;
+      		return;
+    	}
+
+		/* DEBUG */
+		printf("PlanningX: %2f, Actual: %2f\n", m_vPositionsPlanning[m_nState].x, m_vPosition.x );
+		printf("PlanningY: %2f, Actual: %2f\n", m_vPositionsPlanning[m_nState].y, m_vPosition.y );
+		/* DEBUG */
+    
+    	double fX = (m_vPositionsPlanning[m_nState].x - m_vPosition.x);
+    	double fY = (m_vPositionsPlanning[m_nState].y - m_vPosition.y);
+    	double fGoalDirection = 0;
+
+    	/* If on Goal, return 1 */
+    	if ( ( fabs(fX) <= ERROR_POSITION ) && ( fabs(fY) <= ERROR_POSITION )){
+     	 	m_nState++;
+     	 	m_PreyIndex++;
+      		m_PreyIndex %= MAX_PREYS;
+    	}
+
+    	fGoalDirection = atan2(fY, fX);
+
+    	/* Translate fGoalDirection into local coordinates */
+    	fGoalDirection -= m_fOrientation;
+    	/* Normalize Direction */
+    	while ( fGoalDirection > M_PI) fGoalDirection -= 2 * M_PI;
+    	while ( fGoalDirection < -M_PI) fGoalDirection += 2*M_PI;
+    
+    	m_fActivationTable[un_priority][0] = fGoalDirection;
+    	m_fActivationTable[un_priority][1] = 1;
+    	m_fActivationTable[un_priority][2] = 1;
+	}
+}
+
 void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
   	/* Leer Encoder */
 	double* encoder = m_seEncoder->GetSensorReading(m_pcEpuck);
@@ -753,8 +801,8 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
 		onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = NO_OBSTACLE;
   }
  
-  /* If looking for nest and arrived to nest */
-  if (m_nForageStatus == 1 && groundMemory[0] == 0) {
+  	/* If looking for nest and arrived to nest */
+  	if (flag_notBusy == 1 && groundMemory[0] == 0 && m_nForageStatus == 0) {
     /* update forage status */
     m_nForageStatus = 0;
     /* Asumme Path Planning is done */
@@ -773,8 +821,8 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
     /* DEBUG */
   }//end looking for nest
   
-  /* If looking for prey and prey graspped */
-  else if (m_nForageStatus == 0 && groundMemory[0] == 1) {
+  	/* If looking for prey and prey graspped */
+  	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0) {
     /* Update forage Status */
     m_nForageStatus = 1;
     /* Asumme Path Planning is done */
@@ -784,7 +832,7 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
     /* Mark prey on map */
     onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = PREY;
     /* Flag that prey was found */
-    m_nPreyFound += 1;
+    // m_nPreyFound++;
     /* Update prey grid */
     m_nPreyGrid[m_PreyIndex][0] = 1;
     m_nPreyGrid[m_PreyIndex][1] = m_nRobotActualGridX;
@@ -825,238 +873,196 @@ void CIri3Controller::CalcPositionAndOrientation (double *f_encoder)
 
 void CIri3Controller::PathPlanning(unsigned int un_priority) {
 	/* Clear Map */
-  for ( int y = 0 ; y < m ; y++ ){
-    for ( int x = 0 ; x < n ; x++ )
-      map[x][y]= NO_OBSTACLE;
-  }
+  	for ( int y = 0 ; y < m ; y++ ) {
+    	for ( int x = 0 ; x < n ; x++ )
+      		map[x][y]= NO_OBSTACLE;
+  	}
     	
-  /* Found nest, found and caught prey */
-	if (m_nNestFound == 1 && m_nPreyFound >= 1 && m_nPathPlanningDone == 0) {
-    m_nPathPlanningStops=0;
-    m_fActivationTable[un_priority][2] = 1;
-    
-    /* Obtain start and end desired position */
-    int xA, yA, xB, yB;
-    if ( m_nForageStatus == 1) {
-      xA=m_nRobotActualGridX;
-      yA=m_nRobotActualGridY;
-      xB=m_nNestGridX;
-      yB=m_nNestGridY;
-    } else {
-      xA=m_nRobotActualGridX;
-      yA=m_nRobotActualGridY;
+  	/* Found nest, found and caught prey */
+	if (m_nNestFound == 1 && m_nPreyFound >= 4 && m_nPathPlanningDone == 0 && inhib_notDelivering == 1.0) {
+    	m_nPathPlanningStops=0;
+    	m_fActivationTable[un_priority][2] = 1;
+		    
+    	/* Obtain start and end desired position */
+    	int xA, yA, xB, yB;
+    	if (m_nForageStatus == 1) {
+      		xA=m_nRobotActualGridX;
+      		yA=m_nRobotActualGridY;
+      		xB=m_nNestGridX;
+      		yB=m_nNestGridY;
+    	} else {
+      		xA=m_nRobotActualGridX;
+      		yA=m_nRobotActualGridY;
+      		xB = m_nPreyGrid[m_PreyIndex][1];
+      		yB = m_nPreyGrid[m_PreyIndex][2];
 
-      xB = m_nPreyGrid[m_PreyIndex][1];
-      yB = m_nPreyGrid[m_PreyIndex][2];
-      // xB=m_nPreyGridX;
-      // yB=m_nPreyGridY;
-    }
+	  		m_PreyIndex++;
+			m_PreyIndex /= MAX_PREYS;
+      		// xB=m_nPreyGridX;
+      		// yB=m_nPreyGridY;
+    	}
 
-    /* DEBUG */
-    printf("START: %d, %d - END: %d, %d\n", xA, yA, xB, yB);
-    /* DEBUG */
+    	/* DEBUG */
+    	printf("START: %d, %d - END: %d, %d\n", xA, yA, xB, yB);
+    	/* DEBUG */
 
-    /* Obtain Map */
-    for ( int y = 0 ; y < m ; y++ ) {
-      for ( int x = 0 ; x < n ; x++ ){
-        if (onlineMap[x][y] != NO_OBSTACLE && onlineMap[x][y] != NEST && onlineMap[x][y] != PREY)
-          map[x][y] = OBSTACLE;
-      }
-    }
+    	/* Obtain Map */
+    	for ( int y = 0 ; y < m ; y++ ) {
+      		for ( int x = 0 ; x < n ; x++ ) {
+				if (onlineMap[x][y] != NO_OBSTACLE && onlineMap[x][y] != NEST && onlineMap[x][y] != PREY)
+         		 	map[x][y] = OBSTACLE;
+			}
+    	}
 
-    /* Obtain optimal path */
-    string route=pathFind(xA, yA, xB, yB);
-    /* DEBUG */
-    if(route=="") cout<<"An empty route generated!"<<endl;
-    cout << "Route:" << route << endl;
-    printf("route Length: %d\n", route.length());
-    /* DEBUG */
+    	/* Obtain optimal path */
+    	string route=pathFind(xA, yA, xB, yB);
+    	/* DEBUG */
+    	if(route=="") cout<<"An empty route generated!"<<endl;
+    	cout << "Route:" << route << endl;
+    	printf("route Length: %d\n", route.length());
+    	/* DEBUG */
 
-    /* Obtain number of changing directions */
-    for (int i = 1 ; i < route.length() ; i++) {
-      if (route[i-1] != route[i])
-        m_nPathPlanningStops++;
-    }
+    	/* Obtain number of changing directions */
+    	for (int i = 1 ; i < route.length() ; i++) {
+      	if (route[i-1] != route[i])
+        	m_nPathPlanningStops++;
+    	}
       
    
-    /* Add last movement */
-    m_nPathPlanningStops++;
-    /* DEBUG */
-    printf("STOPS: %d\n", m_nPathPlanningStops);
-    /* DEBUG */
+    	/* Add last movement */
+    	m_nPathPlanningStops++;
+    	/* DEBUG */
+    	printf("STOPS: %d\n", m_nPathPlanningStops);
+    	/* DEBUG */
 
-    /* Define vector of desired positions. One for each changing direction */
-    m_vPositionsPlanning = new dVector2[m_nPathPlanningStops]; 
+    	/* Define vector of desired positions. One for each changing direction */
+    	m_vPositionsPlanning = new dVector2[m_nPathPlanningStops]; 
 
-    /* Calc increment of position, correlating grid and metrics */
-    double fXmov = mapLengthX/mapGridX;
-    double fYmov = mapLengthY/mapGridY;
+    	/* Calc increment of position, correlating grid and metrics */
+    	double fXmov = mapLengthX/mapGridX;
+    	double fYmov = mapLengthY/mapGridY;
 
-    /* Get actual position */
-    dVector2 actualPos;
-    //actualPos.x = robotStartGridX * fXmov;
-    actualPos.x = m_nRobotActualGridX * fXmov;
-    //actualPos.y = robotStartGridY * fYmov;
-    actualPos.y = m_nRobotActualGridY * fYmov;
+    	/* Get actual position */
+    	dVector2 actualPos;
+    	//actualPos.x = robotStartGridX * fXmov;
+    	actualPos.x = m_nRobotActualGridX * fXmov;
+    	//actualPos.y = robotStartGridY * fYmov;
+    	actualPos.y = m_nRobotActualGridY * fYmov;
 
-    /* Fill vector of desired positions */
-    int stop = 0;
-    int counter = 0;
-    /* Check the route and obtain the positions*/
-    for (int i = 1 ; i < route.length() ; i++) {
-      /* For every position in route, increment countr */
-      counter++;
-      /* If a direction changed */
-      if ((route[i-1] != route[i])) {
-        /* Obtain the direction char */
-        char c;
-        c = route.at(i-1);
+    	/* Fill vector of desired positions */
+    	int stop = 0;
+    	int counter = 0;
+    	/* Check the route and obtain the positions*/
+    	for (int i = 1 ; i < route.length() ; i++) {
+      		/* For every position in route, increment countr */
+      		counter++;
+      		/* If a direction changed */
+      		if ((route[i-1] != route[i])) {
+        		/* Obtain the direction char */
+        		char c;
+        		c = route.at(i-1);
 
-        /* Calc the new stop according to actual position and increment based on the grid */
-        m_vPositionsPlanning[stop].x = actualPos.x + counter * fXmov*dx[atoi(&c)];
-        m_vPositionsPlanning[stop].y = actualPos.y + counter * fYmov*dy[atoi(&c)];
+        		/* Calc the new stop according to actual position and increment based on the grid */
+        		m_vPositionsPlanning[stop].x = actualPos.x + counter * fXmov*dx[atoi(&c)];
+        		m_vPositionsPlanning[stop].y = actualPos.y + counter * fYmov*dy[atoi(&c)];
 
-        /* Update position for next stop */
-        actualPos.x = m_vPositionsPlanning[stop].x;
-        actualPos.y = m_vPositionsPlanning[stop].y;
+        		/* Update position for next stop */
+        		actualPos.x = m_vPositionsPlanning[stop].x;
+        		actualPos.y = m_vPositionsPlanning[stop].y;
 
-        /* Increment stop */
-        stop++;
-        /* reset counter */
-        counter = 0;
-      }
+        		/* Increment stop */
+        		stop++;
+        		/* reset counter */
+        		counter = 0;
+      		}
 
-      /* If we are in the last update, calc last movement */
-      if (i==(route.length()-1)) {
-        /* Increment counter */
-        counter++;
-        /* Obtain the direction char */
-        char c;
-        c = route.at(i);
+      		/* If we are in the last update, calc last movement */
+      		if (i==(route.length()-1)) {
+        		/* Increment counter */
+        		counter++;
+        		/* Obtain the direction char */
+        		char c;
+        		c = route.at(i);
 
-        /* DEBUG */
-        //printf("COUNTER: %d, CHAR: %c\n", counter, c);
-        /* END DEBUG */
+				/* DEBUG */
+				//printf("COUNTER: %d, CHAR: %c\n", counter, c);
+				/* END DEBUG */
 
-        /* Calc the new stop according to actual position and increment based on the grid */
-        m_vPositionsPlanning[stop].x = actualPos.x + counter * fXmov*dx[atoi(&c)];// - robotStartGridX * fXmov;
-        m_vPositionsPlanning[stop].y = actualPos.y + counter * fYmov*dy[atoi(&c)];// - robotStartGridY * fYmov;
+				/* Calc the new stop according to actual position and increment based on the grid */
+				m_vPositionsPlanning[stop].x = actualPos.x + counter * fXmov*dx[atoi(&c)];// - robotStartGridX * fXmov;
+				m_vPositionsPlanning[stop].y = actualPos.y + counter * fYmov*dy[atoi(&c)];// - robotStartGridY * fYmov;
 
-        /* Update position for next stop */
-        actualPos.x = m_vPositionsPlanning[stop].x;
-        actualPos.y = m_vPositionsPlanning[stop].y;
+				/* Update position for next stop */
+				actualPos.x = m_vPositionsPlanning[stop].x;
+				actualPos.y = m_vPositionsPlanning[stop].y;
 
-        /* Increment stop */
-        stop++;
-        /* reset counter */
-        counter = 0;
-      }
-    }
+				/* Increment stop */
+				stop++;
+				/* reset counter */
+				counter = 0;
+      		}
+    	}
 
-    /* DEBUG */
-    if(route.length()>0) {
-      int j; char c;
-      int x=xA;
-      int y=yA;
-      map[x][y]=START;
-      for ( int i = 0 ; i < route.length() ; i++ ) {
-        c = route.at(i);
-        j = atoi(&c); 
-        x = x+dx[j];
-        y = y+dy[j];
-        map[x][y] = PATH;
-      }
-      map[x][y]=END;
+		/* DEBUG */
+		if(route.length()>0) {
+			int j; char c;
+			int x=xA;
+			int y=yA;
+			map[x][y]=START;
+			for ( int i = 0 ; i < route.length() ; i++ ) {
+				c = route.at(i);
+				j = atoi(&c); 
+				x = x+dx[j];
+				y = y+dy[j];
+				map[x][y] = PATH;
+			}
+			map[x][y]=END;
 
-      PrintMap(&onlineMap[0][0]);
-      printf("\n\n");
-      PrintMap(&map[0][0]);
-    }
-    /* END DEBUG */
+			PrintMap(&onlineMap[0][0]);
+			printf("\n\n");
+			PrintMap(&map[0][0]);
+		}
+		/* END DEBUG */
 
-    /* DEBUG */
-    //printf("Start: %2f, %2f\n", m_nRobotActualGridX * fXmov, m_nRobotActualGridY * fXmov);
-    //for (int i = 0 ; i < m_nPathPlanningStops ; i++)
-    //printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
-    /* END DEBUG */
+		/* DEBUG */
+		//printf("Start: %2f, %2f\n", m_nRobotActualGridX * fXmov, m_nRobotActualGridY * fXmov);
+		//for (int i = 0 ; i < m_nPathPlanningStops ; i++)
+		//printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
+		/* END DEBUG */
 
-    /* Convert to simulator coordinates */
-    for (int i = 0 ; i < m_nPathPlanningStops ; i++) {
-      m_vPositionsPlanning[i].x -= (mapGridX * fXmov)/2;
-      m_vPositionsPlanning[i].y -= (mapGridY * fYmov)/2;
-      m_vPositionsPlanning[i].y = - m_vPositionsPlanning[i].y;
-    }
-    /* DEBUG */
-    //for (int i = 0 ; i < m_nPathPlanningStops ; i++)
-    //printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
-    /* END DEBUG */
+		/* Convert to simulator coordinates */
+		for (int i = 0 ; i < m_nPathPlanningStops ; i++) {
+			m_vPositionsPlanning[i].x -= (mapGridX * fXmov)/2;
+			m_vPositionsPlanning[i].y -= (mapGridY * fYmov)/2;
+			m_vPositionsPlanning[i].y = - m_vPositionsPlanning[i].y;
+		}
+		/* DEBUG */
+		//for (int i = 0 ; i < m_nPathPlanningStops ; i++)
+		//printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
+		/* END DEBUG */
 
 
-    /* Convert to robot coordinates. FAKE!!.
-     * Notice we are only working with initial orientation = 0.0 */
-    for (int i = 0 ; i < m_nPathPlanningStops ; i++) {
-      /* Traslation */ 
-      m_vPositionsPlanning[i].x -= ( (robotStartGridX * fXmov) - (mapGridX * fXmov)/2 );
-      m_vPositionsPlanning[i].y += ( (robotStartGridY * fXmov) - (mapGridY * fYmov)/2);
-      /* Rotation */
-      //double compass = m_pcEpuck->GetRotation();
-      //m_vPositionsPlanning[i].x = m_vPositionsPlanning[i].x * cos (compass) - m_vPositionsPlanning[i].y  * sin(compass);
-      //m_vPositionsPlanning[i].y = m_vPositionsPlanning[i].x * sin (compass) + m_vPositionsPlanning[i].y  * cos(compass);
-    }
-    /* DEBUG */
-    //for (int i = 0 ; i < m_nPathPlanningStops ; i++)
-    //printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
-    /* END DEBUG */
+		/* Convert to robot coordinates. FAKE!!.
+		* Notice we are only working with initial orientation = 0.0 */
+		for (int i = 0 ; i < m_nPathPlanningStops ; i++) {
+			/* Traslation */ 
+			m_vPositionsPlanning[i].x -= ( (robotStartGridX * fXmov) - (mapGridX * fXmov)/2 );
+			m_vPositionsPlanning[i].y += ( (robotStartGridY * fXmov) - (mapGridY * fYmov)/2);
+			/* Rotation */
+			//double compass = m_pcEpuck->GetRotation();
+			//m_vPositionsPlanning[i].x = m_vPositionsPlanning[i].x * cos (compass) - m_vPositionsPlanning[i].y  * sin(compass);
+			//m_vPositionsPlanning[i].y = m_vPositionsPlanning[i].x * sin (compass) + m_vPositionsPlanning[i].y  * cos(compass);
+    	
+			/* DEBUG */
+			//for (int i = 0 ; i < m_nPathPlanningStops ; i++)
+			//printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
+			/* END DEBUG */
 
-    m_nPathPlanningDone = 1;
-  }
+			m_nPathPlanningDone = 1;
+  		}
+	}
 }
 
-void CIri3Controller::GoGoal ( unsigned int un_priority )
-{
-  if (((m_nNestFound * inhib_notCharging) == 1 ) && ((m_nPreyFound *  inhib_notCharging ) >= 1) && (m_nForageStatus == 1.0) && inhib_notDelivering == 1.0)
-  {
-    /* Enable Inhibitor to Forage */
-    inhib_notGoGoal = 0.0;
-
-    /* If something not found at the end of planning, reset plans */
-    if (m_nState >= m_nPathPlanningStops ) {
-      printf(" --------------- LOST!!!!!!!! --------------\n");
-      m_nNestFound  = 0;
-      m_nPreyFound  = 0;
-      m_nState      = 0;
-      return;
-    }
-
-    /* DEBUG */
-    printf("PlanningX: %2f, Actual: %2f\n", m_vPositionsPlanning[m_nState].x, m_vPosition.x );
-    printf("PlanningY: %2f, Actual: %2f\n", m_vPositionsPlanning[m_nState].y, m_vPosition.y );
-    /* DEBUG */
-    
-    double fX = (m_vPositionsPlanning[m_nState].x - m_vPosition.x);
-    double fY = (m_vPositionsPlanning[m_nState].y - m_vPosition.y);
-    double fGoalDirection = 0;
-
-    /* If on Goal, return 1 */
-    if ( ( fabs(fX) <= ERROR_POSITION ) && ( fabs(fY) <= ERROR_POSITION )){
-      m_nState++;
-      m_PreyIndex++;
-      m_PreyIndex %= MAX_PREYS;
-    }
-
-    fGoalDirection = atan2(fY, fX);
-
-    /* Translate fGoalDirection into local coordinates */
-    fGoalDirection -= m_fOrientation;
-    /* Normalize Direction */
-    while ( fGoalDirection > M_PI) fGoalDirection -= 2 * M_PI;
-    while ( fGoalDirection < -M_PI) fGoalDirection += 2*M_PI;
-    
-    m_fActivationTable[un_priority][0] = fGoalDirection;
-    m_fActivationTable[un_priority][1] = 1;
-    m_fActivationTable[un_priority][2] = 1;
-  }
-}
 
 string CIri3Controller::pathFind( const int & xStart, const int & yStart, 
     const int & xFinish, const int & yFinish )

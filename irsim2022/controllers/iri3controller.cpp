@@ -34,23 +34,28 @@ extern long int rngSeed;
 
 using namespace std;
 
-/******************** Behaviors **************/
-#define BEHAVIORS	5
+#define ERROR_DIRECTION 0.05 
+#define ERROR_POSITION  0.02
 
-#define STOP 		0
-#define AVOID		1
-#define RECHARGE	2
-#define DELIVER 	3
-#define SEARCH		4
+/******************** Behaviors **************/
+#define BEHAVIORS	7
+
+#define STOP_PRIORITY 		0
+#define AVOID_PRIORITY		1
+#define RECHARGE_PRIORITY	2
+#define DELIVER_PRIORITY 	3
+#define SEARCH_PRIORITY		4
+#define WANDER_PRIORITY		5
+#define PICKUP_PRIORITY		6
 
 /* Threshold to avoid obstacles */
-#define PROXIMITY_THRESHOLD 0.4
+#define PROXIMITY_THRESHOLD 0.5
 /* Threshold to define the battery discharged */
-#define BATTERY_THRESHOLD 0.4
+#define BATTERY_THRESHOLD 0.5
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 150
+#define SPEED 350
 
 
 CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
@@ -92,11 +97,11 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	/* Initialize Variables */
 	m_fLeftSpeed = 0.0;
 	m_fRightSpeed = 0.0;
-  	inhib_goCharge = 1.0;
-	inhib_stopAll = 1.0;
-	inhib_goDeliver = 1.0;
+  	inhib_notCharging = 1.0;
+	inhib_notInStop = 1.0;
+	inhib_notDelivering = 1.0;
 	flag_notBusy = 1;
-	flag_blueZonePriority = 0;
+	flag_blueZonePriority = 1;
 
 
 	m_fActivationTable = new double* [BEHAVIORS];
@@ -221,6 +226,8 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 		printf("%1.3f ", battery[i]);
 	}
 	printf("\n");
+
+	printf("BLUE LIGHTS ON? %d\n", flag_blueZonePriority);
 	
 // 	printf("BLUE BATTERY: ");
 // 	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
@@ -286,56 +293,65 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	}
 
 	/* Release Inhibitors */
-	inhib_goCharge = 1.0;
-	inhib_stopAll = 1.0;
-	inhib_goDeliver = 1.0;
+	inhib_notCharging = 1.0;
+	inhib_notInStop = 1.0;
+	inhib_notDelivering = 1.0;
+	inhib_notSearching = 1.0;
 
 
 	/* Set Leds to BLACK */
 	m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLACK);
 
-	TrafficLightStop(STOP);
-	ObstacleAvoidance(AVOID);
-	GoLoad(RECHARGE);
-	Deliver(DELIVER);
-	SearchAndWander(SEARCH);
+	TrafficLightStop(STOP_PRIORITY);
+	ObstacleAvoidance(AVOID_PRIORITY);
+	GoLoad(RECHARGE_PRIORITY);
+	Deliver(DELIVER_PRIORITY);
+	SearchNewZone(SEARCH_PRIORITY);
+	Wander(WANDER_PRIORITY);
+	PickUp(PICKUP_PRIORITY);
 }
 
 /******************************************************************************/
 /******************************************************************************/
 
 void CIri3Controller::Coordinator(void) {
-	int nBehavior;
-	double fAngle = 0.0;
+  	/* Create counter for behaviors */ 
+	int       nBehavior;
+ 	/* Create angle of movement */
+	double    fAngle = 0.0;
+  	/* Create vector of movement */
+  	dVector2  vAngle;
+  	vAngle.x = 0.0;
+  	vAngle.y = 0.0;
 
-	int nActiveBehaviors = 0;
-	for (nBehavior = 0; nBehavior < BEHAVIORS; nBehavior++) {
-		if (m_fActivationTable[nBehavior][2] == 1.0) {
+  	/* For every Behavior */
+	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
+		/* If behavior is active */
+		if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
+      		/* DEBUG */
 			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
-			fAngle += m_fActivationTable[nBehavior][0];
-			nActiveBehaviors++;
+      		/* DEBUG */
+			vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
+			vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
 		}
 	}
 
-	fAngle /= (double) nActiveBehaviors;
-
-	/* Normalize fAngle */
-	while ( fAngle > M_PI ) fAngle -= 2 * M_PI;
-	while ( fAngle < -M_PI ) fAngle += 2 * M_PI;
- 
-  	/* Based on the angle, calc wheels movements */
-  	double fCLinear = 1.0;
-  	double fCAngular = 1.0;
-  	double fC1 = SPEED / M_PI;
-
-  	/* Calc Linear Speed */
-  	double fVLinear = SPEED * fCLinear * ( cos ( fAngle / 2) );
-
-  	/*Calc Angular Speed */
-  	double fVAngular = fAngle;
-
-  	m_fLeftSpeed  = (fVLinear - fC1 * fVAngular)*inhib_stopAll;
-  	m_fRightSpeed = (fVLinear + fC1 * fVAngular)*inhib_stopAll;
+  	/* Calc angle of movement */
+	fAngle = atan2(vAngle.y, vAngle.x);
+	/* DEBUG */
+	printf("fAngle: %2f\n", fAngle);
+  	printf("\n");
+  	/* DEBUG */
+  
+  	if (fAngle > 0) {
+		m_fLeftSpeed = SPEED*(1 - fmin(fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
+    	m_fRightSpeed = SPEED;
+  	} else {
+    	m_fLeftSpeed = SPEED;
+    	m_fRightSpeed = SPEED*(1 - fmin(-fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
+  	}
+	m_fLeftSpeed *= inhib_notInStop;
+	m_fRightSpeed *= inhib_notInStop;
 }
 
 /******************************************************************************/
@@ -346,7 +362,7 @@ void CIri3Controller::TrafficLightStop(unsigned int un_priority) {
 	double* redSensor = m_seRedLight->GetSensorReading(m_pcEpuck);
 
 	if(redSensor[0] > 0 || redSensor[7] > 0) {
-		inhib_stopAll = 0.0;
+		inhib_notInStop = 0.0;
 		m_fActivationTable[un_priority][2] = 1.0;
 	}
 }
@@ -395,14 +411,12 @@ void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 
-void CIri3Controller::SearchAndWander(unsigned int un_priority) {
+void CIri3Controller::SearchNewZone(unsigned int un_priority) {
 	/* Leer Sensores de Luz */
 	double* light = m_seBlueLight->GetSensorReading(m_pcEpuck);
 
 	double fMaxLight = 0.0;
 	const double* lightDirections = m_seBlueLight->GetSensorDirections();
-	double totalLight = light[0] + light[1] + light[2] + light[3]
-		+ light[4] + light[5] + light[6] + light[7];
 
   	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
 	dVector2 vRepelent;
@@ -428,10 +442,9 @@ void CIri3Controller::SearchAndWander(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = fMaxLight;
 
-	if (inhib_goCharge*inhib_goDeliver){
+	if (inhib_notCharging*inhib_notDelivering == 1.0 && fMaxLight > 0.0){
+		inhib_notSearching = 0.0;
 		/* Set Leds to GREEN */
-		flag_notBusy = 1.0;
-		if (totalLight > 0) flag_blueZonePriority = 1;
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);	
     	/* Mark behavior as active */
 		m_fActivationTable[un_priority][2] = 1.0;
@@ -477,9 +490,9 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 	m_fActivationTable[un_priority][1] = fMaxLight;
 
 	/* If battery below a BATTERY_THRESHOLD */
-	if ( battery[0] < BATTERY_THRESHOLD * inhib_goCharge){
+	if ( battery[0] < BATTERY_THRESHOLD * inhib_notCharging){
     	/* Inibit Deliver */
-		inhib_goCharge = 0.0;
+		inhib_notCharging = 0.0;
 		/* Set Leds to RED */
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);	
     	/* Mark behavior as active */
@@ -500,9 +513,7 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
 	
 	double fMaxLight = 0.0;
-	double fMaxBlueLight = blueLight[0] + blueLight[7];
-	double fTotalBlueLight = blueLight[0] + blueLight[1] + blueLight[2]+ blueLight[3] 
-		+ blueLight[4] + blueLight[5] + blueLight[6] + blueLight[7];
+	// double fMaxBlueLight = blueLight[0] + blueLight[7];
 	const double* lightDirections = m_seLight->GetSensorDirections();
 
   	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
@@ -524,27 +535,60 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	/* Create repelent angle */
 	fRepelent -= M_PI;
 	
- 	 /* Normalize angle */
+	/* Normalize angle */
 	while ( fRepelent > M_PI ) fRepelent -= 2 * M_PI;
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
- 	 m_fActivationTable[un_priority][0] = fRepelent;
- 	 m_fActivationTable[un_priority][1] = 1 - fMaxLight;
+	m_fActivationTable[un_priority][0] = fRepelent;
+	m_fActivationTable[un_priority][1] = 1 - fMaxLight;
   
 	/* If with a virtual puck */
 	
-	if ((groundMemory[0] * inhib_goCharge) == 1.0) {
-		if (flag_notBusy == 1 && fMaxBlueLight >= 1.1 && groundSensor[0] == 0.5) {
+	// if ((groundMemory[0] * inhib_notCharging) == 1.0) {
+	// 	if (flag_notBusy == 1 && fMaxBlueLight >= 1.1 && groundSensor[0] == 0.5) {
+	// 		m_seBlueLight->SwitchNearestLight(0);
+	// 		flag_notBusy = 0.0;
+	// 		flag_blueZonePriority = 0;
+	// 	}
+	// 	if (flag_blueZonePriority == 0) {
+	// 		inhib_notDelivering = 0.0;
+	// 		/* Set Leds to RED */
+	// 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
+	// 		/* Mark Behavior as active */
+	// 		m_fActivationTable[un_priority][2] = 1.0;
+	// 	}	
+	// }
+
+	if (flag_notBusy == 0) {
+		inhib_notDelivering = 0.0;
+		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
+		m_fActivationTable[un_priority][2] = 1.0;
+	}
+}
+
+/******************************************************************************/
+/******************************************************************************/
+void CIri3Controller::Wander(unsigned int un_priority) {
+	m_fActivationTable[un_priority][2] = 1.0;
+	m_fActivationTable[un_priority][0] = 0.0;
+	m_fActivationTable[un_priority][1] = 1.0;
+}
+
+/******************************************************************************/
+/******************************************************************************/
+void CIri3Controller::PickUp(unsigned int un_priority) {
+	double* groundMemory = m_seGroundMemory->GetSensorReading(m_pcEpuck);
+	double* groundSensor = m_seGround->GetSensorReading(m_pcEpuck);
+
+	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
+	double frontBlueLight = blueLight[0] + blueLight[7];
+
+	if ((groundMemory[0] * inhib_notCharging) == 1.0) {
+		if (flag_notBusy == 1 && (frontBlueLight >= 1.1 || inhib_notSearching == 1.0) && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			flag_notBusy = 0.0;
-			flag_blueZonePriority = 0;
 		}
-		if (flag_blueZonePriority == 0) {
-			inhib_goDeliver = 0.0;
-			/* Set Leds to RED */
-			m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
-			/* Mark Behavior as active */
-			m_fActivationTable[un_priority][2] = 1.0;
-		}	
+	} else if (groundMemory[0] == 0.0 && inhib_notCharging == 1.0) {
+		flag_notBusy = 1;
 	}
 }

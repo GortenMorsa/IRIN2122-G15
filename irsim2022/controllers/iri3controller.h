@@ -42,9 +42,10 @@ private:
 	double** 	m_fActivationTable;
 	int 		m_nWriteToFile;
 	double 		m_fTime;
-	double 		inhib_goCharge;
-	double 		inhib_stopAll;
-	double 		inhib_goDeliver;
+	double 		inhib_notCharging;
+	double 		inhib_notInStop;
+	double 		inhib_notDelivering;
+	double 		inhib_notSearching;
 	int 		flag_notBusy;
 	int			flag_blueZonePriority;
 
@@ -54,9 +55,11 @@ private:
 
 	void TrafficLightStop (unsigned int un_priority);
 	void ObstacleAvoidance (unsigned int un_priority);
-	void SearchAndWander (unsigned int un_priority);
+	void SearchNewZone (unsigned int un_priority);
 	void GoLoad (unsigned int un_priority);
 	void Deliver (unsigned int un_priority);
+	void Wander (unsigned int un_priority);
+	void PickUp (unsigned int un_priority);
 
     float m_fOrientation; 
     dVector2 m_vPosition;

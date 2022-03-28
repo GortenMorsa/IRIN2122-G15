@@ -44,13 +44,13 @@ using namespace std;
 #define SEARCH		4
 
 /* Threshold to avoid obstacles */
-#define PROXIMITY_THRESHOLD 0.3
+#define PROXIMITY_THRESHOLD 0.4
 /* Threshold to define the battery discharged */
-#define BATTERY_THRESHOLD 0.5
+#define BATTERY_THRESHOLD 0.4
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 450
+#define SPEED 150
 
 
 CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_write_to_file) : CController (pch_name, pc_epuck)
@@ -92,11 +92,11 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	/* Initialize Variables */
 	m_fLeftSpeed = 0.0;
 	m_fRightSpeed = 0.0;
-  	fBattToForageInhibitor = 1.0;
-	stopToAllInhibitor = 1.0;
-	fForageToNavigateInhibitor = 1.0;
-	notBusy = 1.0;
-	isABlueLightOn = 0;
+  	inhib_goCharge = 1.0;
+	inhib_stopAll = 1.0;
+	inhib_goDeliver = 1.0;
+	flag_notBusy = 1;
+	flag_blueZonePriority = 0;
 
 
 	m_fActivationTable = new double* [BEHAVIORS];
@@ -164,12 +164,12 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	/* FASE 2: CONTROLADOR */
 	
 // 	/* Inicio Incluir las ACCIONES/CONTROLADOR a implementar */
-// 	printf("CONTACT: ");
-// 	for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
-// 	{
-// 		printf("%1.3f ", contact[i]);
-// 	}
-// 	printf("\n");
+	// printf("CONTACT: ");
+	// for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
+	// {
+	// 	printf("%1.3f ", contact[i]);
+	// }
+	// printf("\n");
 	
 // 	printf("PROX: ");
 // 	for ( int i = 0 ; i < m_seProx->GetNumberOfInputs() ; i ++ )
@@ -286,9 +286,9 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	}
 
 	/* Release Inhibitors */
-	fBattToForageInhibitor = 1.0;
-	stopToAllInhibitor = 1.0;
-	fForageToNavigateInhibitor = 1.0;
+	inhib_goCharge = 1.0;
+	inhib_stopAll = 1.0;
+	inhib_goDeliver = 1.0;
 
 
 	/* Set Leds to BLACK */
@@ -297,8 +297,8 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	TrafficLightStop(STOP);
 	ObstacleAvoidance(AVOID);
 	GoLoad(RECHARGE);
-	Forage(DELIVER);
-	Navigate(SEARCH);
+	Deliver(DELIVER);
+	SearchAndWander(SEARCH);
 }
 
 /******************************************************************************/
@@ -312,7 +312,6 @@ void CIri3Controller::Coordinator(void) {
 	for (nBehavior = 0; nBehavior < BEHAVIORS; nBehavior++) {
 		if (m_fActivationTable[nBehavior][2] == 1.0) {
 			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
-			printf("Can pick up? %d, Are there undiscovered spots? %d\n", notBusy, isABlueLightOn);
 			fAngle += m_fActivationTable[nBehavior][0];
 			nActiveBehaviors++;
 		}
@@ -335,8 +334,8 @@ void CIri3Controller::Coordinator(void) {
   	/*Calc Angular Speed */
   	double fVAngular = fAngle;
 
-  	m_fLeftSpeed  = (fVLinear - fC1 * fVAngular)*stopToAllInhibitor;
-  	m_fRightSpeed = (fVLinear + fC1 * fVAngular)*stopToAllInhibitor;
+  	m_fLeftSpeed  = (fVLinear - fC1 * fVAngular)*inhib_stopAll;
+  	m_fRightSpeed = (fVLinear + fC1 * fVAngular)*inhib_stopAll;
 }
 
 /******************************************************************************/
@@ -347,8 +346,7 @@ void CIri3Controller::TrafficLightStop(unsigned int un_priority) {
 	double* redSensor = m_seRedLight->GetSensorReading(m_pcEpuck);
 
 	if(redSensor[0] > 0 || redSensor[7] > 0) {
-		m_pcEpuck->SetAllColoredLeds(LED_COLOR_YELLOW);
-		stopToAllInhibitor = 0.0;
+		inhib_stopAll = 0.0;
 		m_fActivationTable[un_priority][2] = 1.0;
 	}
 }
@@ -388,9 +386,7 @@ void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
   	m_fActivationTable[un_priority][1] = fMaxProx;
 
 	/* If above a threshold */
-	if ( fMaxProx > PROXIMITY_THRESHOLD * stopToAllInhibitor ){
-		/* Set Leds to GREEN */
-		m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);
+	if ((fMaxProx > PROXIMITY_THRESHOLD)){
 		/* Mark Behavior as active */
 		m_fActivationTable[un_priority][2] = 1.0;
 	}
@@ -399,7 +395,7 @@ void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 
-void CIri3Controller::Navigate(unsigned int un_priority) {
+void CIri3Controller::SearchAndWander(unsigned int un_priority) {
 	/* Leer Sensores de Luz */
 	double* light = m_seBlueLight->GetSensorReading(m_pcEpuck);
 
@@ -432,10 +428,10 @@ void CIri3Controller::Navigate(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = fMaxLight;
 
-	if (stopToAllInhibitor*fBattToForageInhibitor*fForageToNavigateInhibitor){
+	if (inhib_goCharge*inhib_goDeliver){
 		/* Set Leds to GREEN */
-		notBusy = 1.0;
-		if (totalLight > 0) isABlueLightOn = 1;
+		flag_notBusy = 1.0;
+		if (totalLight > 0) flag_blueZonePriority = 1;
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);	
     	/* Mark behavior as active */
 		m_fActivationTable[un_priority][2] = 1.0;
@@ -481,9 +477,9 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 	m_fActivationTable[un_priority][1] = fMaxLight;
 
 	/* If battery below a BATTERY_THRESHOLD */
-	if ( battery[0] < BATTERY_THRESHOLD * stopToAllInhibitor ){
-    	/* Inibit Forage */
-		fBattToForageInhibitor = 0.0;
+	if ( battery[0] < BATTERY_THRESHOLD * inhib_goCharge){
+    	/* Inibit Deliver */
+		inhib_goCharge = 0.0;
 		/* Set Leds to RED */
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);	
     	/* Mark behavior as active */
@@ -494,7 +490,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 
-void CIri3Controller::Forage(unsigned int un_priority) {
+void CIri3Controller::Deliver(unsigned int un_priority) {
 	/* Leer Sensores de Suelo Memory */
 	double* groundMemory = m_seGroundMemory->GetSensorReading(m_pcEpuck);
 	double* groundSensor = m_seGround->GetSensorReading(m_pcEpuck);
@@ -537,14 +533,14 @@ void CIri3Controller::Forage(unsigned int un_priority) {
   
 	/* If with a virtual puck */
 	
-	if ((groundMemory[0] * fBattToForageInhibitor * stopToAllInhibitor) == 1.0) {
-		if (notBusy == 1.0 && fMaxBlueLight > 1.325 && groundSensor[0] == 0.5) {
+	if ((groundMemory[0] * inhib_goCharge) == 1.0) {
+		if (flag_notBusy == 1 && fMaxBlueLight >= 1.1 && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
-			notBusy = 0.0;
-			isABlueLightOn = 0;
+			flag_notBusy = 0.0;
+			flag_blueZonePriority = 0;
 		}
-		if (isABlueLightOn == 0) {
-			fForageToNavigateInhibitor = 0.0;
+		if (flag_blueZonePriority == 0) {
+			inhib_goDeliver = 0.0;
 			/* Set Leds to RED */
 			m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
 			/* Mark Behavior as active */

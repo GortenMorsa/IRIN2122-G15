@@ -41,47 +41,69 @@ using namespace std;
 
 /*Create Arena */
 static const char* pchHeightMap = 
-// "%%%%%%%%%%%%%%%%%%%%"
-// "%############%#####%"
-// "%############%#####%"
-// "%##%%%%%%%%##%##%##%"
-// "%##%######%#####%##%"
-// "%##%######%#####%##%"
-// "%##%##%%%%%%%%%%%##%"
-// "%##%###############%"
-// "%##%###############%"
-// "%##%##%%%%%%%%#####%"
-// "%##%##%######%%%%%%%"
-// "%##%###############%"
-// "%##%#####%%########%"
-// "%##%%%%%%%%%%%#####%"
-// "%##%##%############%"
-// "%##%##%############%"
-// "%##%##%#####%%%%%##%"
-// "%#####%#########%##%"
-// "%#####%#########%##%"
-// "%%%%%%%%%%%%%%%%%%%%";
-
 "%%%%%%%%%%%%%%%%%%%%"
+"%############%#####%"
+"%############%#####%"
+"%############%#####%"
+"%##################%"
+"%##%######%########%"
+"%##%#####%%########%"
 "%##################%"
 "%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
-"%##################%"
+"%#####%############%"
+"%##%##%#######%%%##%"
+"%##%###############%"
+"%########%%########%"
+"%####%%%%%%%#######%"
+"%#####%############%"
+"%#####%############%"
+"%###########%%%####%"
 "%##################%"
 "%##################%"
 "%%%%%%%%%%%%%%%%%%%%";
+
+// "%%%%%%%%%%%%%%%%%%%%"
+// "%##################%"
+// "%##################%"
+// "%#########%%#######%"
+// "%##################%"
+// "%#############%####%"
+// "%#############%%###%"
+// "%##################%"
+// "%####%#############%"
+// "%###%%#############%"
+// "%##################%"
+// "%#############%%###%"
+// "%##############%###%"
+// "%#####%############%"
+// "%#####%%###########%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%%%%%%%%%%%%%%%%%%%%";
+
+
+// "%%%%%%%%%%%%%%%%%%%%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%##################%"
+// "%%%%%%%%%%%%%%%%%%%%";
 
 extern gsl_rng* rng;
 extern long int rngSeed;
@@ -273,7 +295,7 @@ CArena* CIri3Exp::CreateArena()
 	char pchTemp[128];
 	CLightObject* pcLightObject = NULL;
 	for( int i = 0 ; i < m_nLightObjectNumber ; i++){
-		sprintf(pchTemp, "LightObject%d", i);
+		//sprintf(pchTemp, "LightObject%d", i);
 		CLightObject* pcLightObject = new CLightObject (pchTemp);
 		pcLightObject->SetCenter(m_pcvLightObjects[i]);
 		pcArena->AddLightObject(pcLightObject);
@@ -282,7 +304,7 @@ CArena* CIri3Exp::CreateArena()
 	/* Create and add Blue Light Object */
 	CBlueLightObject* pcBlueLightObject = NULL;
 	for( int i = 0 ; i < m_nBlueLightObjectNumber ; i++){
-		sprintf(pchTemp, "BlueLightObject%d", i);
+		//sprintf(pchTemp, "BlueLightObject%d", i);
 		CBlueLightObject* pcBlueLightObject = new CBlueLightObject (pchTemp);
 		pcBlueLightObject->SetCenter(m_pcvBlueLightObjects[i]);
 		pcArena->AddBlueLightObject(pcBlueLightObject);
@@ -291,7 +313,7 @@ CArena* CIri3Exp::CreateArena()
 	/* Create and add Red Light Object */
 	CRedLightObject* pcRedLightObject = NULL;
 	for( int i = 0 ; i < m_nRedLightObjectNumber ; i++){
-		sprintf(pchTemp, "RedLightObject%d", i);
+		//sprintf(pchTemp, "RedLightObject%d", i);
 		CRedLightObject* pcRedLightObject = new CRedLightObject (pchTemp);
 		pcRedLightObject->SetCenter(m_pcvRedLightObjects[i]);
 		pcArena->AddRedLightObject(pcRedLightObject);
@@ -304,7 +326,7 @@ CArena* CIri3Exp::CreateArena()
 	for ( int i = 0 ; i < m_nNumberOfGroundArea ; i++)
 	{
 		//Create GroundArea
-		sprintf(sGroundAreaName,"groundArea%d",i);
+		//sprintf(sGroundAreaName,"groundArea%d",i);
 		CGroundArea* groundArea = new CGroundArea(sGroundAreaName);
 		groundArea->SetCenter(m_vGroundAreaCenter[i]);
 		groundArea->SetExtRadius(m_fGroundAreaExternalRadius[i]);
@@ -324,7 +346,7 @@ void CIri3Exp::AddActuators(CEpuck* pc_epuck)
 {
 	/* Create and Add Wheels */
 	char pchTemp[128];
-	sprintf(pchTemp, "actuators_%s", pc_epuck->GetName());
+	//f(pchTemp, "actuators_%s", pc_epuck->GetName());
 	CActuator* pcActuator = NULL;
 	pcActuator = new CWheelsActuator(pchTemp, pc_epuck);
 	pc_epuck->AddActuator(pcActuator);
@@ -404,7 +426,7 @@ void CIri3Exp::AddSensors(CEpuck* pc_epuck)
 void CIri3Exp::SetController(CEpuck* pc_epuck)
 {
 	char pchTemp[128];
-	sprintf(pchTemp, "Iri1");
+	//sprintf(pchTemp, "Iri1");
 	CController* pcController = new CIri3Controller(pchTemp, pc_epuck, m_nWriteToFile);
 	pc_epuck->SetControllerType( CONTROLLER_IRI3 );
 	pc_epuck->SetController(pcController);
@@ -420,7 +442,7 @@ void CIri3Exp::CreateAndAddEpucks(CSimulator* pc_simulator)
 	char label[100] = "epuck";    
 	for (int i = 0; i < m_nRobotsNumber; i++)
 	{
-		sprintf(label, "epuck%.4d", i);
+		//sprintf(label, "epuck%.4d", i);
 		CEpuck* pcEpuck = CreateEpuck(label, m_pcvRobotPositions[i].x, m_pcvRobotPositions[i].y, m_fRobotOrientations[i]);
 		pc_simulator->AddEpuck(pcEpuck);
 		pc_simulator->SetTimeLimit(m_nRunTime);

@@ -47,7 +47,36 @@ private:
 	double 		inhib_notDelivering;
 	double 		inhib_notSearching;
 	int 		flag_notBusy;
-	int			flag_blueZonePriority;
+
+	float m_fOrientation; 
+    dVector2 m_vPosition;
+
+
+	/** GLOBAL VARIABLES V2 */
+	double 		inhib_notGoGoal;
+
+	int    	   	m_nState;
+	int   	    m_nPathPlanningStops;
+	int     	m_nRobotActualGridX;
+	int       	m_nRobotActualGridY;
+
+	int       	m_nNestFound;
+    int    	  	m_nNestGridX;
+	int    		m_nNestGridY;
+    
+	int 		m_PreyIndex;
+    int       	m_nPreyFound;
+	int** 		m_nPreyGrid;
+    int       	m_nPreyGridX;
+    int       	m_nPreyGridY;
+
+	int 		m_nPathPlanningDone;
+
+	int 		m_nForageStatus;
+
+	dVector2 *m_vPositionsPlanning;
+	/************************/
+
 
 	/* Functions */
 	void ExecuteBehaviors(void);
@@ -61,8 +90,18 @@ private:
 	void Wander (unsigned int un_priority);
 	void PickUp (unsigned int un_priority);
 
-    float m_fOrientation; 
-    dVector2 m_vPosition;
+
+
+	/** GLOBAL VARIABLES V2 */
+	void ComputeActualCell(unsigned int un_priority);
+	void PathPlanning(unsigned int un_priority);
+	void GoGoal(unsigned int un_priority);
+
+	void CalcPositionAndOrientation(double *f_encoder);
+	string pathFind( const int & xStart, const int & yStart, const int & xFinish, const int & yFinish );
+
+	void PrintMap ( int *print_map );
+	/************************/
 };
 
 #endif

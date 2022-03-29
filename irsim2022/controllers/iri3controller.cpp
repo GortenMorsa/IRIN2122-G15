@@ -41,12 +41,12 @@ extern gsl_rng* rng;
 extern long int rngSeed;
 
 /************** Controller PARTE 2 ************/
-const int mapGridX          = 20;
-const int mapGridY          = 20;
+const int mapGridX          = 30;
+const int mapGridY          = 30;
 double    mapLengthX        = 3.0;
 double    mapLengthY        = 3.0;
-int       robotStartGridX   = 1; 
-int       robotStartGridY   = 18;
+int       robotStartGridX   = 6; // 6 (30 precision) or 4 (20 precision)
+int       robotStartGridY   = 23; // 23 (30 precision) or (20 precision)
 
 const   int n=mapGridX; // horizontal size of the map
 const   int m=mapGridY; // vertical size size of the map
@@ -374,9 +374,9 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	// }
 	// printf("\n");
 	// printf("Not busy: %d\n", flag_notBusy);
-	// printf("Presas entregadas: %d\n", m_nPreyDelivered);
-	printf("nPathPlanningStops: %d\n", m_nPathPlanningStops);
-	printf("nState: %d\n", m_nState);
+	//printf("Presas entregadas: %d\n", m_nPreyDelivered);
+	//printf("nPathPlanningStops: %d\n", m_nPathPlanningStops);
+	//printf("nState: %d\n", m_nState);
 	
 	for (int i = 0; i < MAX_PREYS; i++) {
 		printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
@@ -457,41 +457,80 @@ void CIri3Controller::ExecuteBehaviors(void) {
 /******************************************************************************/
 
 void CIri3Controller::Coordinator(void) {
-  	/* Create counter for behaviors */ 
-	int       nBehavior;
- 	/* Create angle of movement */
-	double    fAngle = 0.0;
-  	/* Create vector of movement */
-  	dVector2  vAngle;
-  	vAngle.x = 0.0;
-  	vAngle.y = 0.0;
+	/* VERSION 2 DE COORDINADOR */
 
-  	/* For every Behavior */
-	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
-		/* If behavior is active */
+  	// /* Create counter for behaviors */ 
+	// int       nBehavior;
+ 	// /* Create angle of movement */
+	// double    fAngle = 0.0;
+  	// /* Create vector of movement */
+  	// dVector2  vAngle;
+  	// vAngle.x = 0.0;
+  	// vAngle.y = 0.0;
+
+  	// /* For every Behavior */
+	// for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
+	// 	/* If behavior is active */
+	// 	if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
+    //   		/* DEBUG */
+	// 		printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
+    //   		/* DEBUG */
+	// 		vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
+	// 		vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
+	// 	}
+	// }
+
+  	// /* Calc angle of movement */
+	// fAngle = atan2(vAngle.y, vAngle.x);
+	// /* DEBUG */
+	// printf("fAngle: %2f\n", fAngle);
+  	// printf("\n");
+  	// /* DEBUG */
+  
+  	// if (fAngle > 0) {
+	// 	m_fLeftSpeed = SPEED*(1 - fmin(fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
+    // 	m_fRightSpeed = SPEED;
+  	// } else {
+    // 	m_fLeftSpeed = SPEED;
+    // 	m_fRightSpeed = SPEED*(1 - fmin(-fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
+  	// }
+	// m_fLeftSpeed *= inhib_notInStop;
+	// m_fRightSpeed *= inhib_notInStop;
+
+
+	/* VERSION 1 DE COORDINADOR */
+
+	int nBehavior;
+	double fAngle = 0.0;
+
+  	int nActiveBehaviors = 0;
+  	/* For every Behavior Activated, sum angles */
+	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ) {
 		if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
-      		/* DEBUG */
-			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
-      		/* DEBUG */
-			vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
-			vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
+      		fAngle += m_fActivationTable[nBehavior][0];
+      		nActiveBehaviors++;
 		}
 	}
+  	fAngle /= (double) nActiveBehaviors;
+	
+  	/* Normalize fAngle */
+  	while ( fAngle > M_PI ) fAngle -= 2 * M_PI;
+	while ( fAngle < -M_PI ) fAngle += 2 * M_PI;
+ 
+  	/* Based on the angle, calc wheels movements */
+  	double fCLinear = 1.0;
+  	double fCAngular = 1.0;
+  	double fC1 = SPEED / M_PI;
 
-  	/* Calc angle of movement */
-	fAngle = atan2(vAngle.y, vAngle.x);
-	/* DEBUG */
-	printf("fAngle: %2f\n", fAngle);
-  	printf("\n");
-  	/* DEBUG */
-  
-  	if (fAngle > 0) {
-		m_fLeftSpeed = SPEED*(1 - fmin(fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
-    	m_fRightSpeed = SPEED;
-  	} else {
-    	m_fLeftSpeed = SPEED;
-    	m_fRightSpeed = SPEED*(1 - fmin(-fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
-  	}
+  	/* Calc Linear Speed */
+  	double fVLinear = SPEED * fCLinear * ( cos ( fAngle / 2) );
+
+  	/*Calc Angular Speed */
+  	double fVAngular = fAngle;
+
+  	m_fLeftSpeed  = fVLinear - fC1 * fVAngular;
+  	m_fRightSpeed = fVLinear + fC1 * fVAngular;
+	
 	m_fLeftSpeed *= inhib_notInStop;
 	m_fRightSpeed *= inhib_notInStop;
 }
@@ -778,36 +817,35 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
 	/* Leer Sensores de Suelo Memory */
   	double* groundMemory = m_seGroundMemory->GetSensorReading(m_pcEpuck);
   
-	CalcPositionAndOrientation (encoder);
+	CalcPositionAndOrientation(encoder);
 
 	/* DEBUG */
   	//printf("POS: X: %2f, %2f\r", m_vPosition.x, m_vPosition.y );
   	/* DEBUG */
 
-  /* Calc increment of position, correlating grid and metrics */
-  double fXmov = mapLengthX/((double)mapGridX);
+  	/* Calc increment of position, correlating grid and metrics */
+  	double fXmov = mapLengthX/((double)mapGridX);
 	double fYmov = mapLengthY/((double)mapGridY);
   
-  /* Compute X grid */
-  double tmp = m_vPosition.x;
+	/* Compute X grid */
+  	double tmp = m_vPosition.x;
 	tmp += robotStartGridX * fXmov + 0.5*fXmov;
 	m_nRobotActualGridX = (int) (tmp/fXmov);
   
-  /* Compute Y grid */
-  tmp = -m_vPosition.y;
+  	/* Compute Y grid */
+  	tmp = -m_vPosition.y;
 	tmp += robotStartGridY * fYmov + 0.5*fYmov;
-  m_nRobotActualGridY = (int) (tmp/fYmov);
+	m_nRobotActualGridY = (int) (tmp/fYmov);
   
-  
-  /* DEBUG */
-  printf("GRID: X: %d, Y: %d\n", m_nRobotActualGridX, m_nRobotActualGridY);
+  	/* DEBUG */
+  	printf("GRID: X: %d, Y: %d\n", m_nRobotActualGridX, m_nRobotActualGridY);
 	/* DEBUG */
   
 	/* Update no-obstacles on map */
-  if (onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] != NEST &&
-    onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] != PREY ) {
+	if (onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] != NEST &&
+		onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] != PREY ) {
 		onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = NO_OBSTACLE;
-  }
+	}
  
   	/* If looking for nest and arrived to nest */
   	if (flag_notBusy == 1 && groundMemory[0] == 0 && m_nForageStatus == 1) {

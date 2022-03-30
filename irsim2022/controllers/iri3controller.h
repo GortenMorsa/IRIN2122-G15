@@ -42,11 +42,19 @@ private:
 	double** 	m_fActivationTable;
 	int 		m_nWriteToFile;
 	double 		m_fTime;
-	double 		inhib_goCharge;
-	double 		inhib_stopAll;
-	double 		inhib_goDeliver;
+	double 		inhib_notCharging;
+	double 		inhib_notInStop;
+	double 		inhib_notDelivering;
+	double 		inhib_notSearching;
 	int 		flag_notBusy;
-	int			flag_blueZonePriority;
+
+	float m_fOrientation; 
+    dVector2 m_vPosition;
+
+
+	/** GLOBAL VARIABLES V2 */
+	double 		inhib_notGoGoal;
+
 	int    	   	m_nState;
 	int   	    m_nPathPlanningStops;
 	int     	m_nRobotActualGridX;
@@ -54,9 +62,11 @@ private:
 
 	int       	m_nNestFound;
     int    	  	m_nNestGridX;
-	int     	 m_nNestGridY;
+	int    		m_nNestGridY;
     
-    int       	m_nPreyFound;
+	int 		m_PreyIndex;
+    int       	m_nPreyDelivered;
+	int** 		m_nPreyGrid;
     int       	m_nPreyGridX;
     int       	m_nPreyGridY;
 
@@ -64,25 +74,34 @@ private:
 
 	int 		m_nForageStatus;
 
+	dVector2 *m_vPositionsPlanning;
+	/************************/
+
+
 	/* Functions */
 	void ExecuteBehaviors(void);
 	void Coordinator(void);
 
 	void TrafficLightStop (unsigned int un_priority);
 	void ObstacleAvoidance (unsigned int un_priority);
-	void SearchAndWander (unsigned int un_priority);
+	void SearchNewZone (unsigned int un_priority);
 	void GoLoad (unsigned int un_priority);
 	void Deliver (unsigned int un_priority);
+	void Wander (unsigned int un_priority);
+	void PickUp (unsigned int un_priority);
 
+
+
+	/** GLOBAL VARIABLES V2 */
 	void ComputeActualCell(unsigned int un_priority);
 	void PathPlanning(unsigned int un_priority);
 	void GoGoal(unsigned int un_priority);
 
+	void CalcPositionAndOrientation(double *f_encoder);
+	string pathFind( const int & xStart, const int & yStart, const int & xFinish, const int & yFinish );
+
 	void PrintMap ( int *print_map );
-
-
-    float m_fOrientation; 
-    dVector2 m_vPosition;
+	/************************/
 };
 
 #endif

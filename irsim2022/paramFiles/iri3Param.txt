@@ -3,8 +3,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 NUMBER OF ROBOTS								= 1
-ROBOT 1: X POSITION (meters)	            	= -0.85
-ROBOT 1: Y POSITION (meters)	               	= -0.85
+ROBOT 1: X POSITION (meters)	            	= -0.825
+ROBOT 1: Y POSITION (meters)	               	= 0.825
 ROBOT 1: ORIENTATION (radians)              	= 0.0
 WRITE TO FILE (0 No, 1 YES )	            	= 0
 RUN TIME							    		= 10000
@@ -79,7 +79,7 @@ BLUE LIGHT SENSOR RANGE (meters)			= 4.5
 RED LIGHT SENSOR RANGE (meters)				= 0.5
 BATTERY SENSOR RANGE (meters)				= 0.5
 BATTERY CHARGE COEF 						= 0.03
-BATTERY DISCHARGE COEF						= 0.00001
+BATTERY DISCHARGE COEF						= 0.0001
 BLUE BATTERY SENSOR RANGE (meters)		    = 0.5
 BLUE BATTERY CHARGE COEF 					= 0.01
 BLUE BATTERY DISCHARGE COEF					= 0.001

@@ -41,12 +41,12 @@ extern gsl_rng* rng;
 extern long int rngSeed;
 
 /************** Controller PARTE 2 ************/
-const int mapGridX          = 30;
-const int mapGridY          = 30;
+const int mapGridX          = 20;
+const int mapGridY          = 20;
 double    mapLengthX        = 3.0;
 double    mapLengthY        = 3.0;
-int       robotStartGridX   = 6; // 6 (30 precision) or 4 (20 precision)
-int       robotStartGridY   = 23; // 23 (30 precision) or (20 precision)
+int       robotStartGridX   = 5; // 6 (30 precision) or 4 (20 precision)
+int       robotStartGridY   = 5; // 23 (30 precision) or (20 precision)
 
 const   int n=mapGridX; // horizontal size of the map
 const   int m=mapGridY; // vertical size size of the map
@@ -80,9 +80,9 @@ using namespace std;
 
 
 /* Threshold to avoid obstacles */
-#define PROXIMITY_THRESHOLD 0.5
+#define PROXIMITY_THRESHOLD 0.4
 /* Threshold to define the battery discharged */
-#define BATTERY_THRESHOLD 0.5
+#define BATTERY_THRESHOLD 0.0
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
@@ -378,11 +378,16 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	//printf("nPathPlanningStops: %d\n", m_nPathPlanningStops);
 	//printf("nState: %d\n", m_nState);
 	
-	for (int i = 0; i < MAX_PREYS; i++) {
-		printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
-	}
 
-	PrintMap(&onlineMap[0][0]);
+	// printf("NEST: X: %d, Y: %d\n", m_nNestGridX, m_nNestGridY);
+	// for (int i = 0; i < MAX_PREYS; i++) {
+	// 	printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
+	// }
+	// printf("Preys delivered: %d", m_nPreyDelivered\n);
+	// PrintMap(&onlineMap[0][0]);
+	// printf("X: %d, Y: %d\n", m_pcEpuck->GetPosition().x, m_pcEpuck->GetPosition().y);
+
+	printf("PREY INDEX: %d\n", m_PreyIndex);
 	
 // 	printf("BLUE BATTERY: ");
 // 	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
@@ -459,80 +464,74 @@ void CIri3Controller::ExecuteBehaviors(void) {
 void CIri3Controller::Coordinator(void) {
 	/* VERSION 2 DE COORDINADOR */
 
-  	// /* Create counter for behaviors */ 
-	// int       nBehavior;
- 	// /* Create angle of movement */
-	// double    fAngle = 0.0;
-  	// /* Create vector of movement */
-  	// dVector2  vAngle;
-  	// vAngle.x = 0.0;
-  	// vAngle.y = 0.0;
+  	/* Create counter for behaviors */ 
+	int       nBehavior;
+ 	/* Create angle of movement */
+	double    fAngle = 0.0;
+  	/* Create vector of movement */
+  	dVector2  vAngle;
+  	vAngle.x = 0.0;
+  	vAngle.y = 0.0;
 
-  	// /* For every Behavior */
-	// for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
-	// 	/* If behavior is active */
-	// 	if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
-    //   		/* DEBUG */
-	// 		printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
-    //   		/* DEBUG */
-	// 		vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
-	// 		vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
-	// 	}
-	// }
+  	/* For every Behavior */
+	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
+		/* If behavior is active */
+		if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
+      		/* DEBUG */
+			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
+      		/* DEBUG */
+			vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
+			vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
+		}
+	}
 
-  	// /* Calc angle of movement */
-	// fAngle = atan2(vAngle.y, vAngle.x);
-	// /* DEBUG */
-	// printf("fAngle: %2f\n", fAngle);
-  	// printf("\n");
-  	// /* DEBUG */
+  	/* Calc angle of movement */
+	fAngle = atan2(vAngle.y, vAngle.x);
+	/* DEBUG */
+	printf("fAngle: %2f\n", fAngle);
+  	printf("\n");
+  	/* DEBUG */
   
-  	// if (fAngle > 0) {
-	// 	m_fLeftSpeed = SPEED*(1 - fmin(fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
-    // 	m_fRightSpeed = SPEED;
-  	// } else {
-    // 	m_fLeftSpeed = SPEED;
-    // 	m_fRightSpeed = SPEED*(1 - fmin(-fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
-  	// }
-	// m_fLeftSpeed *= inhib_notInStop;
-	// m_fRightSpeed *= inhib_notInStop;
-
+  	if (fAngle > 0) {
+		m_fLeftSpeed = SPEED*(1 - fmin(fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
+    	m_fRightSpeed = SPEED;
+  	} else {
+    	m_fLeftSpeed = SPEED;
+    	m_fRightSpeed = SPEED*(1 - fmin(-fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
+  	}
 
 	/* VERSION 1 DE COORDINADOR */
 
-	int nBehavior;
-	double fAngle = 0.0;
+	// int nBehavior;
+	// double fAngle = 0.0;
 
-  	int nActiveBehaviors = 0;
-  	/* For every Behavior Activated, sum angles */
-	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ) {
-		if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
-      		fAngle += m_fActivationTable[nBehavior][0];
-      		nActiveBehaviors++;
-		}
-	}
-  	fAngle /= (double) nActiveBehaviors;
+  	// int nActiveBehaviors = 0;
+  	// /* For every Behavior Activated, sum angles */
+	// for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ) {
+	// 	if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
+    //   		fAngle += m_fActivationTable[nBehavior][0];
+    //   		nActiveBehaviors++;
+	// 	}
+	// }
+  	// fAngle /= (double) nActiveBehaviors;
 	
-  	/* Normalize fAngle */
-  	while ( fAngle > M_PI ) fAngle -= 2 * M_PI;
-	while ( fAngle < -M_PI ) fAngle += 2 * M_PI;
+  	// /* Normalize fAngle */
+  	// while ( fAngle > M_PI ) fAngle -= 2 * M_PI;
+	// while ( fAngle < -M_PI ) fAngle += 2 * M_PI;
  
-  	/* Based on the angle, calc wheels movements */
-  	double fCLinear = 1.0;
-  	double fCAngular = 1.0;
-  	double fC1 = SPEED / M_PI;
+  	// /* Based on the angle, calc wheels movements */
+  	// double fCLinear = 1.0;
+  	// double fCAngular = 1.0;
+  	// double fC1 = SPEED / M_PI;
 
-  	/* Calc Linear Speed */
-  	double fVLinear = SPEED * fCLinear * ( cos ( fAngle / 2) );
+  	// /* Calc Linear Speed */
+  	// double fVLinear = SPEED * fCLinear * ( cos ( fAngle / 2) );
 
-  	/*Calc Angular Speed */
-  	double fVAngular = fAngle;
+  	// /*Calc Angular Speed */
+  	// double fVAngular = fAngle;
 
-  	m_fLeftSpeed  = fVLinear - fC1 * fVAngular;
-  	m_fRightSpeed = fVLinear + fC1 * fVAngular;
-	
-	m_fLeftSpeed *= inhib_notInStop;
-	m_fRightSpeed *= inhib_notInStop;
+  	// m_fLeftSpeed  = fVLinear - fC1 * fVAngular;
+  	// m_fRightSpeed = fVLinear + fC1 * fVAngular;
 }
 
 /******************************************************************************/
@@ -580,7 +579,7 @@ void CIri3Controller::ObstacleAvoidance(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
   	m_fActivationTable[un_priority][0] = fRepelent;
-  	m_fActivationTable[un_priority][1] = fMaxProx;
+  	m_fActivationTable[un_priority][1] = 1.0;
 
 	/* If above a threshold */
 	if ((fMaxProx > PROXIMITY_THRESHOLD)){
@@ -621,7 +620,7 @@ void CIri3Controller::SearchNewZone(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
 	m_fActivationTable[un_priority][0] = fRepelent;
-	m_fActivationTable[un_priority][1] = fMaxLight;
+	m_fActivationTable[un_priority][1] = fMaxLight; //fMaxLight;
 
 	if (inhib_notCharging*inhib_notDelivering == 1.0 && fMaxLight > 0.0){
 		inhib_notSearching = 0.0;
@@ -668,7 +667,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
 	m_fActivationTable[un_priority][0] = fRepelent;
-	m_fActivationTable[un_priority][1] = fMaxLight;
+	m_fActivationTable[un_priority][1] = fMaxLight; //fMaxLight;
 
 	/* If battery below a BATTERY_THRESHOLD */
 	if ( battery[0] < BATTERY_THRESHOLD * inhib_notCharging){
@@ -677,7 +676,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 		/* Set Leds to RED */
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLUE);	
     	/* Mark behavior as active */
-   		 m_fActivationTable[un_priority][2] = 1.0;
+		m_fActivationTable[un_priority][2] = 1.0;
 	}	
 }
 
@@ -692,9 +691,15 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	/* Leer Sensores de Luz */
 	double* light = m_seLight->GetSensorReading(m_pcEpuck);
 	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
-	
+	double totalBlueLight = 0.0;
+
 	double fMaxLight = 0.0;
-	// double fMaxBlueLight = blueLight[0] + blueLight[7];
+
+	for (int i = 0; i < 8; i++) {
+		totalBlueLight += blueLight[i];
+	}
+
+	double fMaxBlueLight = blueLight[0] + blueLight[7];
 	const double* lightDirections = m_seLight->GetSensorDirections();
 
   	/* We call vRepelent to go similar to Obstacle Avoidance, although it is an aproaching vector */
@@ -721,9 +726,9 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
 	m_fActivationTable[un_priority][0] = fRepelent;
-	m_fActivationTable[un_priority][1] = 1 - fMaxLight;
+	m_fActivationTable[un_priority][1] = 1 - fMaxLight;// 1 - fMaxLight;
   
-	if (flag_notBusy == 0 && m_nPreyDelivered < 4) {
+	if (flag_notBusy == 0 && m_nPreyDelivered < 4 && inhib_notCharging == 1.0) {
 		inhib_notDelivering = 0.0;
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_RED);
 		m_fActivationTable[un_priority][2] = 1.0;
@@ -733,11 +738,9 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 void CIri3Controller::Wander(unsigned int un_priority) {
-	if (inhib_notSearching*inhib_notCharging*inhib_notDelivering) {
 		m_fActivationTable[un_priority][2] = 1.0;
 		m_fActivationTable[un_priority][0] = 0.0;
-		m_fActivationTable[un_priority][1] = 1.0;
-	}
+		m_fActivationTable[un_priority][1] = 0.5;
 }
 
 /******************************************************************************/
@@ -749,7 +752,7 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
 	double frontBlueLight = blueLight[0] + blueLight[7];
 
-	if ((groundMemory[0] * inhib_notCharging) == 1.0 && inhib_notGoGoal == 1.0) {
+	if ((groundMemory[0] * inhib_notCharging) == 1.0 && m_nPreyDelivered < 4) {
 		if (flag_notBusy == 1 && (frontBlueLight >= 1.1 || inhib_notSearching == 1.0) && groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			flag_notBusy = 0.0;
@@ -757,6 +760,8 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 	} else if (flag_notBusy == 0.0 && groundMemory[0] == 0.0 && inhib_notCharging == 1.0) {
 		flag_notBusy = 1;
 		m_nPreyDelivered++;
+	} else if ((groundMemory[0] * inhib_notCharging)) {
+
 	}
 }
 
@@ -773,10 +778,10 @@ void CIri3Controller::GoGoal ( unsigned int un_priority ){
     	inhib_notGoGoal = 0.0;
 
     	/* If something not found at the end of planning, reset plans */
-    	if (m_nState >= m_nPathPlanningStops && m_nPreyDelivered > 4) {
+    	if (m_nState >= m_nPathPlanningStops && m_nPreyDelivered >= 4) {
       		printf(" --------------- LOST!!!!!!!! --------------\n");
-      		m_nNestFound  = 0;
-      		m_nPreyDelivered  = 0;
+      		// m_nNestFound  = 0;
+      		// m_nPreyDelivered  = 0;
       		m_nState      = 0;
       		return;
     	}
@@ -792,9 +797,23 @@ void CIri3Controller::GoGoal ( unsigned int un_priority ){
 
     	/* If on Goal, return 1 */
     	if ( ( fabs(fX) <= ERROR_POSITION ) && ( fabs(fY) <= ERROR_POSITION )){
-     	 	m_nState++;
-     	 	m_PreyIndex++;
-      		m_PreyIndex %= MAX_PREYS;
+			for (int i = 0; i < MAX_PREYS; i++) {
+				if (m_nRobotActualGridX == m_nPreyGrid[i][1] && m_nRobotActualGridY == m_nPreyGrid[i][2]) {
+					printf("PRESA ALCANZADA AUTOMATICAMENTE LETS GO\n");
+					m_nPathPlanningDone = 0;
+					m_nState = 0;
+					return;
+				}
+			}
+			if (m_nRobotActualGridX == m_nNestGridX && m_nRobotActualGridY == m_nNestGridY) {
+				printf("PRESA EN NEST LETS GO\n");
+				m_PreyIndex++;
+				m_PreyIndex %= (MAX_PREYS - 1); 
+				m_nPathPlanningDone = 0;
+				m_nState = 0;
+				return;
+			}
+			m_nState++;
     	}
 
     	fGoalDirection = atan2(fY, fX);
@@ -867,7 +886,7 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
     	/* DEBUG */
   	}	//end looking for nest
 	/* If looking for prey and prey graspped */
-	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0) {
+	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0 && m_nPreyDelivered < 4) {
     	/* Update forage Status */
     	m_nForageStatus = 1;
     	/* Asumme Path Planning is done */
@@ -897,12 +916,12 @@ void CIri3Controller::CalcPositionAndOrientation (double *f_encoder)
   /* DEBUG */ 
   
   /* Remake kinematic equations */
-  double fIncU = (f_encoder[0]+ f_encoder[1] )/ 2;
-  double fIncTetha = (f_encoder[1] - f_encoder[0])/ CEpuck::WHEELS_DISTANCE;
+  double fIncU = (f_encoder[0]+ f_encoder[1] ) / 2;
+  double fIncTetha = (f_encoder[1] - f_encoder[0]) / CEpuck::WHEELS_DISTANCE;
 
   /* Substitute arc by chord, take care of 0 division */
-  if (fIncTetha != 0.0)
-    fIncU = ((f_encoder[0]/fIncTetha)+(CEpuck::WHEELS_DISTANCE/2))* 2.0 * sin (fIncTetha/2.0);
+	if (fIncTetha != 0.0)
+		fIncU = ((f_encoder[0]/fIncTetha)+(CEpuck::WHEELS_DISTANCE/2))* 2.0 * sin (fIncTetha/2.0);
 
   /* Update new Position */
   m_vPosition.x += fIncU * cos(m_fOrientation + fIncTetha/2);
@@ -930,7 +949,7 @@ void CIri3Controller::PathPlanning(unsigned int un_priority) {
 		    
     	/* Obtain start and end desired position */
     	int xA, yA, xB, yB;
-    	if (m_nForageStatus == 1) {
+    	if (m_nPreyDelivered == 4 && m_nRobotActualGridX != m_nNestGridX && m_nRobotActualGridY != m_nNestGridY) {
       		xA=m_nRobotActualGridX;
       		yA=m_nRobotActualGridY;
       		xB=m_nNestGridX;
@@ -1098,8 +1117,8 @@ void CIri3Controller::PathPlanning(unsigned int un_priority) {
 			//printf("MOV %d: %2f, %2f\n", i, m_vPositionsPlanning[i].x, m_vPositionsPlanning[i].y);
 			/* END DEBUG */
 
-			m_nPathPlanningDone = 1;
   		}
+		m_nPathPlanningDone = 1;
 	}
 }
 

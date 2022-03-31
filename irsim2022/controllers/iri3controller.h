@@ -73,6 +73,7 @@ private:
 	int 		m_nPathPlanningDone;
 
 	int 		m_nForageStatus;
+	int 		f_goGoalLight;
 
 	dVector2 *m_vPositionsPlanning;
 	/************************/

@@ -39,7 +39,7 @@ double* CBlueBatterySensor::ComputeSensorReadings(CEpuck* pc_epuck, CSimulator* 
 	dVector2 vLightPosition;
 	double fDistance;
 	/* If there is lights charge battery */
-	if ( pcArena->GetNearestBlueLight(vPosition, m_fRange , &vLightPosition, &fDistance))
+	if ( pcArena->GetNearestLight(vPosition, m_fRange , &vLightPosition, &fDistance))
 	{
 			m_fBatteryLevel += m_fChargeCoef * ( 1 - pow ( m_fBatteryLevel , 2 ));
 	}

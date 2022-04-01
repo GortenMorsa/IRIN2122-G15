@@ -75,6 +75,8 @@ private:
 	int 		m_nForageStatus;
 	int 		f_goGoalLight;
 
+	int 		m_actualGoal;
+
 	dVector2 *m_vPositionsPlanning;
 	/************************/
 
@@ -93,7 +95,7 @@ private:
 
 
 
-	/** GLOBAL VARIABLES V2 */
+	/** GLOBAL FUNCTIONS V2 */
 	void ComputeActualCell(unsigned int un_priority);
 	void PathPlanning(unsigned int un_priority);
 	void GoGoal(unsigned int un_priority);

@@ -88,7 +88,7 @@ using namespace std;
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 200
+#define SPEED 150
 
 /************** Mapas Parte 2 ************/
 #define MAX_PREYS	3

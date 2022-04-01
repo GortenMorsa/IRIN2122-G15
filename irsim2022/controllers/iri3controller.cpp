@@ -43,12 +43,12 @@ extern gsl_rng* rng;
 extern long int rngSeed;
 
 /************** Controller PARTE 2 ************/
-const int mapGridX          = 20;
-const int mapGridY          = 20;
+const int mapGridX          = 30;
+const int mapGridY          = 30;
 double    mapLengthX        = 3.0;
 double    mapLengthY        = 3.0;
-int       robotStartGridX   = 10; // 6 (30 precision) or 4 (20 precision)
-int       robotStartGridY   = 10; // 23 (30 precision) or (20 precision)
+int       robotStartGridX   = 6; // 6 (30 precision) or 4 (20 precision)
+int       robotStartGridY   = 23; // 23 (30 precision) or (20 precision)
 
 const   int n=mapGridX; // horizontal size of the map
 const   int m=mapGridY; // vertical size size of the map
@@ -82,13 +82,13 @@ using namespace std;
 
 
 /* Threshold to avoid obstacles */
-#define PROXIMITY_THRESHOLD 0.4
+#define PROXIMITY_THRESHOLD 0.6
 /* Threshold to define the battery discharged */
-#define BATTERY_THRESHOLD 0.0
+#define BATTERY_THRESHOLD 0.4
 /* Threshold to reduce the speed of the robot */
 #define NAVIGATE_LIGHT_THRESHOLD 0.9
 
-#define SPEED 300
+#define SPEED 200
 
 /************** Mapas Parte 2 ************/
 #define MAX_PREYS	3
@@ -370,11 +370,11 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 // 	}
 // 	printf("\n");
 	
-	// printf("BATTERY: ");
-	// for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
-	// {
-	// 	printf("%1.3f ", battery[i]);
-	// }
+	printf("BATTERY: ");
+	for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
+	{
+		printf("%1.3f ", battery[i]);
+	}
 	// printf("\n");
 	// printf("Not busy: %d\n", flag_notBusy);
 	//printf("Presas entregadas: %d\n", m_nPreyDelivered);
@@ -387,7 +387,7 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	// 	printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
 	// }
 	// printf("Preys delivered: %d", m_nPreyDelivered\n);
-	PrintMap(&onlineMap[0][0]);
+	// PrintMap(&onlineMap[0][0]);
 	// printf("X: %d, Y: %d\n", m_pcEpuck->GetPosition().x, m_pcEpuck->GetPosition().y);
 
 	printf("PREY INDEX: %d\n", m_PreyIndex);
@@ -502,39 +502,8 @@ void CIri3Controller::Coordinator(void) {
     	m_fLeftSpeed = SPEED;
     	m_fRightSpeed = SPEED*(1 - fmin(-fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
   	}
-
-	/* VERSION 1 DE COORDINADOR */
-
-	// int nBehavior;
-	// double fAngle = 0.0;
-
-  	// int nActiveBehaviors = 0;
-  	// /* For every Behavior Activated, sum angles */
-	// for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ) {
-	// 	if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
-    //   		fAngle += m_fActivationTable[nBehavior][0];
-    //   		nActiveBehaviors++;
-	// 	}
-	// }
-  	// fAngle /= (double) nActiveBehaviors;
-	
-  	// /* Normalize fAngle */
-  	// while ( fAngle > M_PI ) fAngle -= 2 * M_PI;
-	// while ( fAngle < -M_PI ) fAngle += 2 * M_PI;
- 
-  	// /* Based on the angle, calc wheels movements */
-  	// double fCLinear = 1.0;
-  	// double fCAngular = 1.0;
-  	// double fC1 = SPEED / M_PI;
-
-  	// /* Calc Linear Speed */
-  	// double fVLinear = SPEED * fCLinear * ( cos ( fAngle / 2) );
-
-  	// /*Calc Angular Speed */
-  	// double fVAngular = fAngle;
-
-  	// m_fLeftSpeed  = fVLinear - fC1 * fVAngular;
-  	// m_fRightSpeed = fVLinear + fC1 * fVAngular;
+    m_fLeftSpeed *= inhib_notInStop;
+    m_fRightSpeed *= inhib_notInStop;
 }
 
 /******************************************************************************/
@@ -623,7 +592,7 @@ void CIri3Controller::SearchNewZone(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
 	m_fActivationTable[un_priority][0] = fRepelent;
-	m_fActivationTable[un_priority][1] = fMaxLight; //fMaxLight;
+	m_fActivationTable[un_priority][1] = fMaxLight;
 
 	if (inhib_notCharging*inhib_notDelivering == 1.0 && fMaxLight > 0.0){
 		inhib_notSearching = 0.0;
@@ -670,7 +639,7 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
 	m_fActivationTable[un_priority][0] = fRepelent;
-	m_fActivationTable[un_priority][1] = fMaxLight; //fMaxLight;
+	m_fActivationTable[un_priority][1] = fMaxLight;
 
 	/* If battery below a BATTERY_THRESHOLD */
 	if ( battery[0] < BATTERY_THRESHOLD * inhib_notCharging){
@@ -729,7 +698,7 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	while ( fRepelent < -M_PI ) fRepelent += 2 * M_PI;
 
 	m_fActivationTable[un_priority][0] = fRepelent;
-	m_fActivationTable[un_priority][1] = 1 - fMaxLight;// 1 - fMaxLight;
+	m_fActivationTable[un_priority][1] = 1 - fMaxLight;
   
 	if (flag_notBusy == 0 && m_nPreyDelivered < MAX_PREYS && inhib_notCharging == 1.0) {
 		inhib_notDelivering = 0.0;
@@ -763,9 +732,7 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 	} else if (flag_notBusy == 0.0 && groundMemory[0] == 0.0 && inhib_notCharging == 1.0) {
 		flag_notBusy = 1;
 		m_nPreyDelivered++;
-	} else if ((groundMemory[0] * inhib_notCharging)) {
-
-	}
+  }
 }
 
 

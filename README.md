@@ -1,7 +1,8 @@
 # Trabajo O1 IRIN 2021-2022
 ## Localización del proyecto
-* Parte reactiva y con comportamientos : ArqComportamiento
-* Ampliación con resolución de mapas: ResolucionMapas
+* ~Parte reactiva y con comportamientos : ArqComportamiento~
+* ~Ampliación con resolución de mapas: ResolucionMapas~
+Todo en main, si se quiere observar la parte de comportamientos únicamente, comentar las funciones relacionadas con resolución de mapas y cambiar el número de comportamientos
 
 ## Comandos
 Es recomendable descargar el proyecto completo desde GitHub y ejecutar en /irsim2022:

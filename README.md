@@ -1,8 +1,14 @@
 # Trabajo O1 IRIN 2021-2022
+## Entrega del proyecto
+Está planificado que el proyecto completo estará completamente terminado para el lunes 4 de abril y se entregará ese mismo día en caso de que no se presentes objeciones. Solo figurará el nombre de quien haya realizado aportaciones al código o a la memoria.
+
 ## Localización del proyecto
 * ~Parte reactiva y con comportamientos : ArqComportamiento~
 * ~Ampliación con resolución de mapas: ResolucionMapas~
 * Todo en main, si se quiere observar la parte de comportamientos únicamente, comentar las funciones relacionadas con resolución de mapas y cambiar el número de comportamientos
+
+## Memoria del proyecto
+La memoria se encuentra en el siguiente enlace https://docs.google.com/document/d/17f5nM5KO6SbiClhDT5OSuARovG115xLHRuNaCr1vTzo/edit?usp=sharing. Se encuentra en modo solo leer, pedir permiso para editar.
 
 ## Comandos
 Es recomendable descargar el proyecto completo desde GitHub y ejecutar en /irsim2022:

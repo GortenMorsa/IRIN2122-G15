@@ -1,6 +1,6 @@
 # Trabajo O1 IRIN 2021-2022
 ## Entrega del proyecto
-Está planificado que el proyecto completo estará completamente terminado para el lunes 4 de abril y se entregará ese mismo día en caso de que no se presentes objeciones. Solo figurará el nombre de quien haya realizado aportaciones al código o a la memoria.
+Está planificado que el proyecto completo estará completamente terminado para el lunes 4 de abril y se entregará ese mismo día en caso de que no se presenten objeciones. Solo figurará el nombre de quien haya realizado aportaciones al código o a la memoria.
 
 ## Localización del proyecto
 * ~Parte reactiva y con comportamientos : ArqComportamiento~

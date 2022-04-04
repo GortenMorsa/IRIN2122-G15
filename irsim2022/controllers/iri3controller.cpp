@@ -318,59 +318,10 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 
 	
 	/* FASE 2: CONTROLADOR */
-	
-  // 	/* Inicio Incluir las ACCIONES/CONTROLADOR a implementar */
-  // printf("CONTACT: ");
-  // for ( int i = 0 ; i < m_seContact->GetNumberOfInputs() ; i ++ )
-  // {
-  // 	printf("%1.3f ", contact[i]);
-  // }
-  // printf("\n");
-	
-  // 	printf("PROX: ");
-  // 	for ( int i = 0 ; i < m_seProx->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.3f ", prox[i]);
-  // 	}
-  // 	printf ("\n");
-	
-  // 	printf("LIGHT: ");
-  // 	for ( int i = 0 ; i < m_seLight->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.3f ", light[i]);
-  // 	}
-  // 	printf ("\n");
-	
-	// printf("BLUE LIGHT: ");
-	// for ( int i = 0 ; i < m_seBlueLight->GetNumberOfInputs() ; i ++ )
-	// {
-	// 	printf("%1.3f ", bluelight[i]);
-	// }
-	// printf ("\n");
-	// printf("TOTAL: %1.3f", bluelight[0] + bluelight[7]);
 
-	
-  // 	printf("RED LIGHT: ");
-  // 	for ( int i = 0 ; i < m_seRedLight->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.3f ", redlight[i]);
-  // 	}
-  // 	printf ("\n");
-	
-  // 	printf("GROUND: ");
-  // 	for ( int i = 0 ; i < m_seGround->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.3f ", ground[i]);
-  // 	}
-  // 	printf("\n");
 
-  // 	printf("GROUND MEMORY: ");
-  // 	for ( int i = 0 ; i < m_seGroundMemory->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.3f ", groundMemory[i]);
-  // 	}
-  // 	printf("\n");
-	
+	/* BATERÍAS */
+	printf("--- BATTERIES ---\n");
 	printf("BATTERY: ");
 	for ( int i = 0 ; i < m_seBattery->GetNumberOfInputs() ; i ++ )
 	{
@@ -378,48 +329,34 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	}
 	printf("\n");
 
-	// printf("Not busy: %d\n", flag_notBusy);
-	//printf("Presas entregadas: %d\n", m_nPreyDelivered);
-	//printf("nPathPlanningStops: %d\n", m_nPathPlanningStops);
-	//printf("nState: %d\n", m_nState);
-	
-
-	printf("NEST: X: %d, Y: %d\n", m_nNestGridX, m_nNestGridY);
-	for (int i = 0; i < MAX_PREYS; i++) {
-		printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
-	}
-	printf("Prey index: %d\n", m_nPreyDelivered);
-	// PrintMap(&onlineMap[0][0]);
-	// printf("X: %d, Y: %d\n", m_pcEpuck->GetPosition().x, m_pcEpuck->GetPosition().y);
-
-	// printf("TOTAL PREY: %d\n", m_nPreyDelivered);
-	
-  	printf("BLUE BATTERY: ");
+	printf("BLUE BATTERY: ");
   	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
   	{
   		printf("%1.3f ", bluebattery[i]);
   	}
   	printf("\n");
+	  
   	printf("RED BATTERY: ");
   	for ( int i = 0 ; i < m_seRedBattery->GetNumberOfInputs() ; i ++ )
   	{
   		printf("%1.3f ", redbattery[i]);
   	}
-  	printf("\n");
-	
-  //   printf("ENCODER: ");
-  // 	for ( int i = 0 ; i < m_seEncoder->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.5f ", encoder[i]);
-  // 	}
-  // 	printf("\n");
-    
-  //   printf("COMPASS: ");
-  // 	for ( int i = 0 ; i < m_seCompass->GetNumberOfInputs() ; i ++ )
-  // 	{
-  // 		printf("%1.5f ", compass[i]);
-  // 	}
-  // 	printf("\n");
+  	printf("\n\n");
+
+
+	/* VARIABLES ADICIONALES DE INTERÉS */
+	// printf("Not busy: %d\n", flag_notBusy);
+	// printf("Presas entregadas: %d\n", m_nPreyDelivered);
+
+	/* MAPAS */
+	printf("--- LOCALIZACION ZONAS ---\n");
+	printf("ZONA DE ENTREGA: X: %d, Y: %d\n\n", m_nNestGridX, m_nNestGridY);
+	for (int i = 0; i < MAX_PREYS; i++) {
+		printf("ZONA DE RECOGIDA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
+	}
+	printf("\n----------------------------------------\n");
+
+	// PrintMap(&onlineMap[0][0]);
 }
 
 /******************************************************************************/
@@ -470,23 +407,25 @@ void CIri3Controller::Coordinator(void) {
   	vAngle.y = 0.0;
 
   /* For every Behavior */
+	printf("--- BEHAVIORS ---\n");
 	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
 		/* If behavior is active */
 		if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
-      /* DEBUG */
+         /* DEBUG */
 			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
-      /* DEBUG */
+         /* DEBUG */
 			vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
 			vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
 		}
 	}
+	printf("\n");
 
   /* Calc angle of movement */
 	fAngle = atan2(vAngle.y, vAngle.x);
 	/* DEBUG */
-	printf("fAngle: %2f\n", fAngle);
-  printf("\n");
-  /* DEBUG */
+	// printf("fAngle: %2f\n", fAngle);
+	printf("\n");
+	/* DEBUG */
   
   if (fAngle > 0) {
 		m_fLeftSpeed = SPEED*(1 - fmin(fAngle, ERROR_DIRECTION)/ERROR_DIRECTION);
@@ -592,7 +531,7 @@ void CIri3Controller::SearchNewZone(unsigned int un_priority) {
 		inhib_notSearching = 0.0;
 		/* Set Leds to WHITE */
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);	
-    /* Mark behavior as active */
+		/* Mark behavior as active */
 		m_fActivationTable[un_priority][2] = 1.0;
 	}
 }
@@ -765,17 +704,16 @@ void CIri3Controller::GoGoal ( unsigned int un_priority ){
 
 		if (f_goGoalLight == 1.0) {
 			m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);
-      		printf("Pick up at zone %d\n", m_actualGoal);
+      		printf("YENDO A ZONA DE RECOGIDA %d\n", m_actualGoal);
 
 		} else {
 			m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLACK);
-      		printf("Going to goal\n");
+      		printf("YENDO A ENTREGAR\n");
 		}
 
 		/* DEBUG */
 		printf("PlanningX: %2f, Actual: %2f\n", m_vPositionsPlanning[m_nState].x, m_vPosition.x );
-		printf("PlanningY: %2f, Actual: %2f\n", m_vPositionsPlanning[m_nState].y, m_vPosition.y );
-  
+		printf("PlanningY: %2f, Actual: %2f\n\n", m_vPositionsPlanning[m_nState].y, m_vPosition.y );
 		/* DEBUG */
     
     	double fX = (m_vPositionsPlanning[m_nState].x - m_vPosition.x);
@@ -823,7 +761,7 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
 	CalcPositionAndOrientation(encoder);
 
 	/* DEBUG */
-  	printf("POS: X: %2f, %2f\r", m_vPosition.x, m_vPosition.y );
+  	// printf("POS: X: %d, %d\n", m_vPosition.x, m_vPosition.y);
   	/* DEBUG */
 
   	/* Calc increment of position, correlating grid and metrics */
@@ -841,6 +779,7 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
 	m_nRobotActualGridY = (int) (tmp/fYmov);
   
   	/* DEBUG */
+	printf("--- RESOLUCION MAPAS ---\n");
   	printf("GRID: X: %d, Y: %d\n", m_nRobotActualGridX, m_nRobotActualGridY);
 	/* DEBUG */
   
@@ -890,6 +829,7 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
 		PrintMap(&onlineMap[0][0]);
 		/* DEBUG */
   	}
+	printf("\n");
 }
 
 void CIri3Controller::CalcPositionAndOrientation (double *f_encoder)

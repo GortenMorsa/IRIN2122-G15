@@ -3,13 +3,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 NUMBER OF ROBOTS								= 1
-<<<<<<< HEAD
-ROBOT 1: X POSITION (meters)	            	= 0.075
-ROBOT 1: Y POSITION (meters)	               	= -0.075
-=======
 ROBOT 1: X POSITION (meters)	            	= -0.85
 ROBOT 1: Y POSITION (meters)	               	= -0.85
->>>>>>> ResolucionMapas
 ROBOT 1: ORIENTATION (radians)              	= 0.0
 WRITE TO FILE (0 No, 1 YES )	            	= 0
 RUN TIME							    		= 10000
@@ -97,14 +92,6 @@ BATTERY CHARGE COEF 						= 0.1
 BATTERY DISCHARGE COEF						= 0.0001;
 
 BLUE BATTERY SENSOR RANGE (meters)		    = 0.5
-<<<<<<< HEAD
-BLUE BATTERY CHARGE COEF 					= 0.01
-BLUE BATTERY DISCHARGE COEF					= 0.001
-RED BATTERY SENSOR RANGE (meters)			= 0.75
-RED BATTERY CHARGE COEF 					= 0.01
-RED BATTERY DISCHARGE COEF					= 0.001
-ODOMETRY ERROR                              = 0
-=======
 BLUE BATTERY CHARGE COEF 					= 0.1
 BLUE BATTERY DISCHARGE COEF					= 0.0003
 
@@ -113,4 +100,3 @@ RED BATTERY CHARGE COEF 					= 0.1
 RED BATTERY DISCHARGE COEF					= 0.0002
 
 ODOMETRY ERROR                              = 0.0
->>>>>>> ResolucionMapas

@@ -84,7 +84,7 @@ using namespace std;
 
 
 /* Threshold to avoid obstacles */
-#define PROXIMITY_THRESHOLD 0.4
+#define PROXIMITY_THRESHOLD 0.6
 /* Threshold to define the battery discharged */
 #define BATTERY_THRESHOLD 0.4
 #define BLUE_BATTERY_THRESHOLD 0.1
@@ -211,12 +211,12 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	/* Initialize Variables */
 	m_fLeftSpeed = 0.0;
 	m_fRightSpeed = 0.0;
-  inhib_notCharging = 1.0;
+  	inhib_notCharging = 1.0;
 	inhib_notInStop = 1.0;
 	inhib_notDelivering = 1.0;
 	flag_notBusy = 1;
 	f_goGoalLight = 1.0;
-  m_actualGoal = 0.0;
+  	m_actualGoal = 0.0;
 
 	m_fActivationTable = new double* [BEHAVIORS];
 	for ( int i = 0 ; i < BEHAVIORS ; i++ )
@@ -475,14 +475,14 @@ void CIri3Controller::ExecuteBehaviors(void) {
 void CIri3Controller::Coordinator(void) {
 	/* VERSION 2 DE COORDINADOR */
 
-  /* Create counter for behaviors */ 
+  	/* Create counter for behaviors */ 
 	int       nBehavior;
  	/* Create angle of movement */
 	double    fAngle = 0.0;
-  /* Create vector of movement */
-  dVector2  vAngle;
-  vAngle.x = 0.0;
-  vAngle.y = 0.0;
+  	/* Create vector of movement */
+  	dVector2  vAngle;
+  	vAngle.x = 0.0;
+  	vAngle.y = 0.0;
 
   /* For every Behavior */
 	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){

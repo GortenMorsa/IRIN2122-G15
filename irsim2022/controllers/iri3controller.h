@@ -53,7 +53,7 @@ private:
 
 
 	/** GLOBAL VARIABLES V2 */
-	double 		inhib_notGoGoal;
+	double 		inhib_pathPlanning;
 
 	int    	   	m_nState;
 	int   	    m_nPathPlanningStops;

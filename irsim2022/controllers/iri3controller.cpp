@@ -84,7 +84,7 @@ using namespace std;
 
 
 /* Threshold to avoid obstacles */
-#define PROXIMITY_THRESHOLD 0.6
+#define PROXIMITY_THRESHOLD 0.4
 /* Threshold to define the battery discharged */
 #define BATTERY_THRESHOLD 0.4
 #define BLUE_BATTERY_THRESHOLD 0.1
@@ -148,12 +148,6 @@ class node
 
     // Euclidian Distance
     d=static_cast<int>(sqrt(xd*xd+yd*yd));
-
-    // Manhattan distance
-    //d=abs(xd)+abs(yd);
-
-    // Chebyshev distance
-    //d=max(abs(xd), abs(yd));
 
     return(d);
   }
@@ -225,32 +219,32 @@ CIri3Controller::CIri3Controller (const char* pch_name, CEpuck* pc_epuck, int n_
 	}
 
 	/* Initialize Variables Parte 2*/
-	inhib_notGoGoal = 1.0;
+	inhib_pathPlanning = 1.0;
 	m_PreyIndex = 0;
 
 	/* Odometry */
-  m_nState              = 0;
-  m_nPathPlanningStops  = 0;
-  m_fOrientation        = 0.0;
-  m_vPosition.x         = 0.0;
-  m_vPosition.y         = 0.0;
+  	m_nState              = 0;
+  	m_nPathPlanningStops  = 0;
+  	m_fOrientation        = 0.0;
+  	m_vPosition.x         = 0.0;
+  	m_vPosition.y         = 0.0;
 
 	/* Set Actual Position to robot Start Grid */
  	m_nRobotActualGridX = robotStartGridX;
-  m_nRobotActualGridY = robotStartGridY;
+  	m_nRobotActualGridY = robotStartGridY;
 
 	/* Init onlineMap */
-  for ( int y = 0 ; y < m ; y++ ){
-    for ( int x = 0 ; x < n ; x++ )
-      onlineMap[x][y] = OBSTACLE;
-  }
+  	for ( int y = 0 ; y < m ; y++ ){
+    	for ( int x = 0 ; x < n ; x++ )
+			onlineMap[x][y] = OBSTACLE;
+	}
 
 	/* DEBUG */
-  PrintMap(&onlineMap[0][0]);
-  /* DEBUG */
+	PrintMap(&onlineMap[0][0]);
+  	/* DEBUG */
 
 	/* Initialize status of foraging */
-  m_nForageStatus = 0;
+  	m_nForageStatus = 0;
 
 	/* Initialize Nest/Prey variables */
 	m_nNestGridX  = 0;
@@ -390,15 +384,15 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
 	//printf("nState: %d\n", m_nState);
 	
 
-	// printf("NEST: X: %d, Y: %d\n", m_nNestGridX, m_nNestGridY);
-	// for (int i = 0; i < MAX_PREYS; i++) {
-	// 	printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
-	// }
-	// printf("Preys delivered: %d", m_nPreyDelivered\n);
+	printf("NEST: X: %d, Y: %d\n", m_nNestGridX, m_nNestGridY);
+	for (int i = 0; i < MAX_PREYS; i++) {
+		printf("ZONA %d: encontrada = %d, X = %d, Y = %d\n", i, m_nPreyGrid[i][0], m_nPreyGrid[i][1], m_nPreyGrid[i][2]);
+	}
+	printf("Prey index: %d\n", m_nPreyDelivered);
 	// PrintMap(&onlineMap[0][0]);
 	// printf("X: %d, Y: %d\n", m_pcEpuck->GetPosition().x, m_pcEpuck->GetPosition().y);
 
-	// printf("PREY INDEX: %d\n", m_PreyIndex);
+	// printf("TOTAL PREY: %d\n", m_nPreyDelivered);
 	
   	printf("BLUE BATTERY: ");
   	for ( int i = 0 ; i < m_seBlueBattery->GetNumberOfInputs() ; i ++ )
@@ -426,16 +420,6 @@ void CIri3Controller::SimulationStep(unsigned n_step_number, double f_time, doub
   // 		printf("%1.5f ", compass[i]);
   // 	}
   // 	printf("\n");
-
-	/* Fin: Incluir las ACCIONES/CONTROLADOR a implementar */
-
-
-	// FILE* filePosition = fopen("outputFiles/robotPosition", "a");
-	// fprintf(filePosition," %2.4f %2.4f %2.4f %2.4f\n",
-	// f_time, m_pcEpuck->GetPosition().x,
-	// m_pcEpuck->GetPosition().y,
-	// m_pcEpuck->GetRotation());
-	// fclose(filePosition);
 }
 
 /******************************************************************************/
@@ -450,7 +434,7 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	inhib_notInStop = 1.0;
 	inhib_notDelivering = 1.0;
 	inhib_notSearching = 1.0;
-	inhib_notGoGoal = 1.0;
+	inhib_pathPlanning = 1.0;
 
 
 	/* Set Leds to BLACK */
@@ -459,10 +443,11 @@ void CIri3Controller::ExecuteBehaviors(void) {
 	TrafficLightStop(STOP_PRIORITY);
 	ObstacleAvoidance(AVOID_PRIORITY);
 	GoLoad(RECHARGE_PRIORITY);
+
 	Deliver(DELIVER_PRIORITY);
 	SearchNewZone(SEARCH_PRIORITY);
-	Wander(WANDER_PRIORITY);
 	PickUp(PICKUP_PRIORITY);
+	Wander(WANDER_PRIORITY);
 
 	ComputeActualCell(GO_GOAL_PRIORITY);
 	PathPlanning(GO_GOAL_PRIORITY);
@@ -618,13 +603,13 @@ void CIri3Controller::SearchNewZone(unsigned int un_priority) {
 void CIri3Controller::GoLoad(unsigned int un_priority) {
 	/* Leer Battery Sensores */
 	double* battery = m_seBattery->GetSensorReading(m_pcEpuck);
-  double* redBattery = m_seRedBattery->GetSensorReading(m_pcEpuck);
-  double* blueBattery = m_seBlueBattery->GetSensorReading(m_pcEpuck);
+	double* redBattery = m_seRedBattery->GetSensorReading(m_pcEpuck);
+	double* blueBattery = m_seBlueBattery->GetSensorReading(m_pcEpuck);
 
 	/* Leer Sensores de Luz */
 	double* light = m_seLight->GetSensorReading(m_pcEpuck);
-  double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
-  double totalBlueLight = 0.0;
+  	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
+  	double totalBlueLight = 0.0;
 	double fMaxLight = 0.0;
 
 	const double* lightDirections = m_seLight->GetSensorDirections();
@@ -653,15 +638,15 @@ void CIri3Controller::GoLoad(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = fMaxLight;
 
-  int batStatus = (battery[0] < BATTERY_THRESHOLD) ? 1 : -1;
-  int redBatStatus = (redBattery[0] < RED_BATTERY_THRESHOLD) ? 1 : -1;
-  int blueBatStatus = (blueBattery[0] < BLUE_BATTERY_THRESHOLD && totalBlueLight > 0) ? 1 : -1;
+  	int batStatus = (battery[0] < BATTERY_THRESHOLD) ? 1 : -1;
+  	int redBatStatus = (redBattery[0] < RED_BATTERY_THRESHOLD) ? 1 : -1;
+  	int blueBatStatus = (blueBattery[0] < BLUE_BATTERY_THRESHOLD && totalBlueLight > 0) ? 1 : -1;
 
 	/* If battery below a BATTERY_THRESHOLD */
-  if (batStatus*redBatStatus*blueBatStatus == 1.0) {
-    inhib_notCharging = 0.0;
+  	if (batStatus*redBatStatus*blueBatStatus == 1.0) {
+		inhib_notCharging = 0.0;
 		m_fActivationTable[un_priority][2] = 1.0;
-  } 
+  	} 
   
   if (batStatus == 1.0) {
     m_pcEpuck->SetAllColoredLeds(LED_COLOR_YELLOW);
@@ -720,7 +705,7 @@ void CIri3Controller::Deliver(unsigned int un_priority) {
 	m_fActivationTable[un_priority][0] = fRepelent;
 	m_fActivationTable[un_priority][1] = 1 - fMaxLight;
   
-	if (flag_notBusy == 0 && m_nPreyDelivered < MAX_PREYS && inhib_notCharging == 1.0) {
+	if (flag_notBusy == 0 && inhib_notCharging == 1.0) {
 		inhib_notDelivering = 0.0;
 		m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLACK);
 		m_fActivationTable[un_priority][2] = 1.0;
@@ -744,15 +729,24 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 	double* blueLight = m_seBlueLight->GetSensorReading(m_pcEpuck);
 	double frontBlueLight = blueLight[0] + blueLight[7];
 
-	if ((groundMemory[0] * inhib_notCharging) == 1 && m_nPreyDelivered < MAX_PREYS  && inhib_notCharging == 1.0) {
-		if (flag_notBusy == 1 && (frontBlueLight >= 1.3 || inhib_notSearching == 1.0) && groundSensor[0] == 0.5) {
+	if (m_nPreyDelivered >= MAX_PREYS) {
+		inhib_pathPlanning = 0.0;
+	}
+
+	if (groundMemory[0] == 1.0
+		&& inhib_pathPlanning == 1.0  
+		&& inhib_notCharging == 1.0) {
+
+		if (flag_notBusy == 1 
+		&& (frontBlueLight >= 1.3 || inhib_notSearching == 1.0) 
+		&& groundSensor[0] == 0.5) {
 			m_seBlueLight->SwitchNearestLight(0);
 			flag_notBusy = 0.0;
 		}
-	} else if (flag_notBusy == 0.0 && groundMemory[0] == 0.0) {
+	} else if (flag_notBusy == 0 && groundMemory[0] == 0.0 && inhib_pathPlanning == 1.0) {
 		flag_notBusy = 1;
 		m_nPreyDelivered++;
-  }
+ 	 }
 }
 
 /******************************************************************************/
@@ -761,27 +755,21 @@ void CIri3Controller::PickUp(unsigned int un_priority) {
 /******************************************************************************/
 /******************************************************************************/
 void CIri3Controller::GoGoal ( unsigned int un_priority ){
-  	if (inhib_notCharging == 1.0 && m_nPreyDelivered == MAX_PREYS) {
-	
-    	/* Enable Inhibitor to Forage */
-    	inhib_notGoGoal = 0.0;
-
+  	if (inhib_notCharging == 1.0 && inhib_pathPlanning == 0.0) {
     	/* If something not found at the end of planning, reset plans */
     	if (m_nState >= m_nPathPlanningStops && m_nPreyDelivered >= MAX_PREYS) {
       		printf(" --------------- LOST!!!!!!!! --------------\n");
-      		// m_nNestFound  = 0;
-      		// m_nPreyDelivered  = 0;
       		m_nState      = 0;
       		return;
     	}
 
 		if (f_goGoalLight == 1.0) {
 			m_pcEpuck->SetAllColoredLeds(LED_COLOR_GREEN);
-      printf("Pick up at zone %d\n", m_actualGoal);
+      		printf("Pick up at zone %d\n", m_actualGoal);
 
 		} else {
 			m_pcEpuck->SetAllColoredLeds(LED_COLOR_BLACK);
-      printf("Going to goal\n");
+      		printf("Going to goal\n");
 		}
 
 		/* DEBUG */
@@ -796,16 +784,13 @@ void CIri3Controller::GoGoal ( unsigned int un_priority ){
 
     	/* If on Goal, return 1 */
     	if ( ( fabs(fX) <= ERROR_POSITION ) && ( fabs(fY) <= ERROR_POSITION )){
-			for (int i = 0; i < MAX_PREYS; i++) {
-				if (m_nRobotActualGridX == m_nPreyGrid[i][1] && m_nRobotActualGridY == m_nPreyGrid[i][2]) {
-					printf("PRESA ALCANZADA AUTOMATICAMENTE LETS GO\n");
-					m_nPathPlanningDone = 0;
-					m_nState = 0;
-					return;
-				}
+			if (m_nRobotActualGridX == m_nPreyGrid[m_PreyIndex][1] && m_nRobotActualGridY == m_nPreyGrid[m_PreyIndex][2]) {
+				m_nPathPlanningDone = 0;
+				m_nState = 0;
+				return;
 			}
+
 			if (m_nRobotActualGridX == m_nNestGridX && m_nRobotActualGridY == m_nNestGridY) {
-				printf("PRESA EN NEST LETS GO\n");
 				m_PreyIndex++;
 				m_PreyIndex %= MAX_PREYS; 
 				m_nPathPlanningDone = 0;
@@ -885,7 +870,7 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
     	/* DEBUG */
   	}	//end looking for nest
 	/* If looking for prey and prey graspped */
-	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0 && m_nPreyDelivered < MAX_PREYS) {
+	else if (flag_notBusy == 0 && groundMemory[0] == 1 && m_nForageStatus == 0 && m_nPreyGrid[MAX_PREYS-1][0] != 1) {
     	/* Update forage Status */
     	m_nForageStatus = 1;
     	/* Asumme Path Planning is done */
@@ -895,7 +880,6 @@ void CIri3Controller::ComputeActualCell ( unsigned int un_priority ) {
 		/* Mark prey on map */
 		onlineMap[m_nRobotActualGridX][m_nRobotActualGridY] = PREY;
 		/* Flag that prey was found */
-		// m_nPreyFound++;
 		/* Update prey grid */
 		m_nPreyGrid[m_PreyIndex][0] = 1;
 		m_nPreyGrid[m_PreyIndex][1] = m_nRobotActualGridX;
@@ -953,13 +937,13 @@ void CIri3Controller::PathPlanning(unsigned int un_priority) {
       		yA=m_nRobotActualGridY;
       		xB=m_nNestGridX;
       		yB=m_nNestGridY;
-	    		f_goGoalLight = 0.0;
+			f_goGoalLight = 0.0;
     	} else {
-        m_actualGoal = m_PreyIndex;
-        xA=m_nRobotActualGridX;
-        yA=m_nRobotActualGridY;
-        xB = m_nPreyGrid[m_PreyIndex][1];
-        yB = m_nPreyGrid[m_PreyIndex][2];
+        	m_actualGoal = m_PreyIndex;
+        	xA=m_nRobotActualGridX;
+        	yA=m_nRobotActualGridY;
+       	 	xB = m_nPreyGrid[m_PreyIndex][1];
+        	yB = m_nPreyGrid[m_PreyIndex][2];
 		  	f_goGoalLight = 1.0;
     	}
 

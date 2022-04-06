@@ -410,9 +410,9 @@ void CIri3Controller::Coordinator(void) {
 	printf("--- BEHAVIORS ---\n");
 	for ( nBehavior = 0 ; nBehavior < BEHAVIORS ; nBehavior++ ){
 		/* If behavior is active */
-		if ( m_fActivationTable[nBehavior][2] == 1.0 ) {
+		if ( m_fActivationTable[nBehavior][2] == 1.0) {
          /* DEBUG */
-			printf("Behavior %d: %2f\n", nBehavior, m_fActivationTable[nBehavior][0]);
+			printf("Behavior %d: %2f | ", nBehavior, m_fActivationTable[nBehavior][0]);
          /* DEBUG */
 			vAngle.x += m_fActivationTable[nBehavior][1] * cos(m_fActivationTable[nBehavior][0]);
 			vAngle.y += m_fActivationTable[nBehavior][1] * sin(m_fActivationTable[nBehavior][0]);
